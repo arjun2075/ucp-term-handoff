@@ -19,8 +19,8 @@ This is an analysis harness, not a proposed UCP schema or capability. Its JSON S
 Python 3.9+ and the `jsonschema` package are required.
 
 ```sh
-python3 -m unittest discover -s term-handoff/tests -v
-python3 term-handoff/tests/test_vectors.py --matrix
+python3 -m unittest discover -s tests -v
+python3 tests/test_vectors.py --matrix
 ```
 
 The first command validates every vector and runs the semantic and cross-vector audits. The second prints the review matrix used in `analysis.md`.
