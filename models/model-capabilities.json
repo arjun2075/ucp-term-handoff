@@ -1,0 +1,31 @@
+{
+  "description": "Harness scoring assumptions for the two bare handoff models. AMBIGUOUS means the representation needs an additional contract; it is not an implementation failure.",
+  "opaque_reference": {
+    "stable_identity": "PASS",
+    "authoritative_resolution": "PASS",
+    "current_revision_check": "PASS",
+    "buyer_scope_check": "PASS",
+    "item_quantity_scope_check": "PASS",
+    "expiry_check": "PASS",
+    "acceptance_provenance": "PASS",
+    "classified_binding_result": "AMBIGUOUS",
+    "portable_scope_visibility": "FAIL",
+    "portable_commitment_visibility": "FAIL",
+    "business_commitment_resolution": "PASS",
+    "origin_independent_verification": "FAIL"
+  },
+  "portable_artifact": {
+    "stable_identity": "PASS",
+    "authoritative_resolution": "AMBIGUOUS",
+    "current_revision_check": "AMBIGUOUS",
+    "buyer_scope_check": "PASS",
+    "item_quantity_scope_check": "PASS",
+    "expiry_check": "PASS",
+    "acceptance_provenance": "PASS",
+    "classified_binding_result": "AMBIGUOUS",
+    "portable_scope_visibility": "PASS",
+    "portable_commitment_visibility": "PASS",
+    "business_commitment_resolution": "AMBIGUOUS",
+    "origin_independent_verification": "AMBIGUOUS"
+  }
+}

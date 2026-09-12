@@ -1,0 +1,160 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://example.invalid/term-handoff/test-vector.schema.json",
+  "title": "Accepted-term handoff test vector",
+  "description": "Schema for the review harness; not a production UCP schema.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["id", "title", "timeline", "term_artifact", "binding_request", "business_state", "expected", "model_requirements", "invariants"],
+  "properties": {
+    "id": {"type": "string", "pattern": "^V[1-7]$"},
+    "title": {"type": "string", "minLength": 1},
+    "timeline": {
+      "type": "array",
+      "minItems": 2,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["at", "actor", "event", "revision"],
+        "properties": {
+          "at": {"type": "string", "format": "date-time"},
+          "actor": {"enum": ["buyer", "business", "human_approver", "platform"]},
+          "event": {"type": "string", "minLength": 1},
+          "revision": {"type": "integer", "minimum": 1}
+        }
+      }
+    },
+    "term_artifact": {"$ref": "#/definitions/artifact"},
+    "binding_request": {"$ref": "#/definitions/binding"},
+    "business_state": {"$ref": "#/definitions/businessState"},
+    "expected": {"$ref": "#/definitions/expected"},
+    "model_requirements": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["opaque_reference", "portable_artifact"],
+      "properties": {
+        "opaque_reference": {"$ref": "#/definitions/modelExpectation"},
+        "portable_artifact": {"$ref": "#/definitions/modelExpectation"}
+      }
+    },
+    "invariants": {
+      "type": "array",
+      "minItems": 1,
+      "uniqueItems": true,
+      "items": {"type": "string", "pattern": "^I(?:[1-9]|1[0-2])$"}
+    }
+  },
+  "definitions": {
+    "party": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "role"],
+      "properties": {
+        "id": {"type": "string", "minLength": 1},
+        "role": {"enum": ["buyer", "business", "marketplace", "broker"]}
+      }
+    },
+    "line": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["item_id", "quantity", "unit_price"],
+      "properties": {
+        "item_id": {"type": "string", "minLength": 1},
+        "quantity": {"type": "integer", "minimum": 1},
+        "unit_price": {"type": "integer", "minimum": 0}
+      }
+    },
+    "artifact": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "revision", "issuer", "authorized_by", "buyer_scope", "acceptance", "expires_at", "commitment", "currency", "lines", "commercial_terms"],
+      "properties": {
+        "id": {"type": "string", "minLength": 1},
+        "revision": {"type": "integer", "minimum": 1},
+        "issuer": {"$ref": "#/definitions/party"},
+        "authorized_by": {"type": "string", "minLength": 1},
+        "buyer_scope": {"type": "string", "minLength": 1},
+        "acceptance": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["state", "accepted_by", "accepted_at", "accepted_revision", "provenance"],
+          "properties": {
+            "state": {"enum": ["proposed", "accepted", "awarded"]},
+            "accepted_by": {"type": ["string", "null"]},
+            "accepted_at": {"type": ["string", "null"], "format": "date-time"},
+            "accepted_revision": {"type": ["integer", "null"], "minimum": 1},
+            "provenance": {"type": "string", "minLength": 1}
+          }
+        },
+        "expires_at": {"type": "string", "format": "date-time"},
+        "commitment": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["type", "invalidation_conditions"],
+          "properties": {
+            "type": {"enum": ["proposed", "accepted_revalidate", "business_firm"]},
+            "invalidation_conditions": {"type": "array", "uniqueItems": true, "items": {"type": "string", "minLength": 1}}
+          }
+        },
+        "currency": {"type": "string", "pattern": "^[A-Z]{3}$"},
+        "lines": {"type": "array", "minItems": 1, "items": {"$ref": "#/definitions/line"}},
+        "commercial_terms": {"type": "array", "minItems": 1, "items": {"type": "string", "minLength": 1}}
+      }
+    },
+    "binding": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["at", "target", "artifact_id", "revision", "issuer", "buyer", "acceptance_state", "accepted_revision", "currency", "lines", "commercial_terms"],
+      "properties": {
+        "at": {"type": "string", "format": "date-time"},
+        "target": {"enum": ["cart", "checkout"]},
+        "artifact_id": {"type": "string", "minLength": 1},
+        "revision": {"type": "integer", "minimum": 1},
+        "issuer": {"$ref": "#/definitions/party"},
+        "buyer": {"type": "string", "minLength": 1},
+        "acceptance_state": {"enum": ["proposed", "accepted", "awarded"]},
+        "accepted_revision": {"type": ["integer", "null"], "minimum": 1},
+        "currency": {"type": "string", "pattern": "^[A-Z]{3}$"},
+        "lines": {"type": "array", "minItems": 1, "items": {"$ref": "#/definitions/line"}},
+        "commercial_terms": {"type": "array", "minItems": 1, "items": {"type": "string", "minLength": 1}}
+      }
+    },
+    "businessState": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["artifact_known", "artifact_authentic", "issuer_authorized", "current_revision", "origin_available", "revalidation_passes", "revalidation_reason", "active_invalidation_conditions"],
+      "properties": {
+        "artifact_known": {"type": "boolean"},
+        "artifact_authentic": {"type": "boolean"},
+        "issuer_authorized": {"type": "boolean"},
+        "current_revision": {"type": "integer", "minimum": 1},
+        "origin_available": {"type": "boolean"},
+        "revalidation_passes": {"type": "boolean"},
+        "revalidation_reason": {"type": ["string", "null"]},
+        "active_invalidation_conditions": {"type": "array", "uniqueItems": true, "items": {"type": "string", "minLength": 1}}
+      }
+    },
+    "expected": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["recognized", "artifact_valid", "bindable", "outcome", "reason"],
+      "properties": {
+        "recognized": {"type": "boolean"},
+        "artifact_valid": {"type": "boolean"},
+        "bindable": {"type": "boolean"},
+        "outcome": {"enum": ["bound", "invalid_artifact", "recognized_rejected"]},
+        "reason": {"enum": ["bound", "malformed_artifact", "unknown_artifact", "forged_artifact", "unauthorized_issuer", "identity_mismatch", "stale_revision", "not_accepted", "expired", "scope_expansion", "currency_mismatch", "commercial_terms_mismatch", "business_revalidation_failed", "firm_commitment_invalidated"]}
+      }
+    },
+    "modelExpectation": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["requires", "expected_verdict", "rationale"],
+      "properties": {
+        "requires": {"type": "array", "minItems": 1, "uniqueItems": true, "items": {"type": "string", "minLength": 1}},
+        "expected_verdict": {"enum": ["PASS", "FAIL", "AMBIGUOUS"]},
+        "rationale": {"type": "string", "minLength": 1}
+      }
+    }
+  }
+}

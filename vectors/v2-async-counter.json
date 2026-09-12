@@ -1,0 +1,28 @@
+{
+  "id": "V2",
+  "title": "Async counteroffer rejects an older accepted revision",
+  "timeline": [
+    {"at": "2026-09-10T09:00:00Z", "actor": "buyer", "event": "rfq_requested", "revision": 1},
+    {"at": "2026-09-10T15:00:00Z", "actor": "business", "event": "counteroffered", "revision": 2},
+    {"at": "2026-09-11T08:00:00Z", "actor": "buyer", "event": "countered_after_pause", "revision": 3},
+    {"at": "2026-09-11T10:00:00Z", "actor": "business", "event": "latest_revision_available", "revision": 3}
+  ],
+  "term_artifact": {
+    "id": "quote-2001", "revision": 2,
+    "issuer": {"id": "business-shopware-1", "role": "business"},
+    "authorized_by": "business-shopware-1", "buyer_scope": "buyer-acme",
+    "acceptance": {"state": "accepted", "accepted_by": "buyer-acme", "accepted_at": "2026-09-10T16:00:00Z", "accepted_revision": 2, "provenance": "acceptance recorded before later counter created revision 3"},
+    "expires_at": "2026-09-15T00:00:00Z",
+    "commitment": {"type": "accepted_revalidate", "invalidation_conditions": []},
+    "currency": "USD", "lines": [{"item_id": "SKU-A", "quantity": 20, "unit_price": 8500}],
+    "commercial_terms": ["revision 2 price"]
+  },
+  "binding_request": {"at": "2026-09-11T10:05:00Z", "target": "cart", "artifact_id": "quote-2001", "revision": 2, "issuer": {"id": "business-shopware-1", "role": "business"}, "buyer": "buyer-acme", "acceptance_state": "accepted", "accepted_revision": 2, "currency": "USD", "lines": [{"item_id": "SKU-A", "quantity": 20, "unit_price": 8500}], "commercial_terms": ["revision 2 price"]},
+  "business_state": {"artifact_known": true, "artifact_authentic": true, "issuer_authorized": true, "current_revision": 3, "origin_available": true, "revalidation_passes": true, "revalidation_reason": null, "active_invalidation_conditions": []},
+  "expected": {"recognized": true, "artifact_valid": false, "bindable": false, "outcome": "invalid_artifact", "reason": "stale_revision"},
+  "model_requirements": {
+    "opaque_reference": {"requires": ["authoritative_resolution", "current_revision_check"], "expected_verdict": "PASS", "rationale": "The resolver compares the presented revision with the authoritative current revision."},
+    "portable_artifact": {"requires": ["current_revision_check"], "expected_verdict": "AMBIGUOUS", "rationale": "A self-contained revision number cannot prove that no newer revision exists without a freshness or revocation contract."}
+  },
+  "invariants": ["I1", "I2", "I4", "I5", "I12"]
+}

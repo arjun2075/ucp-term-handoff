@@ -1,0 +1,28 @@
+{
+  "id": "V1",
+  "title": "Normal accepted RFQ binds revision 2",
+  "timeline": [
+    {"at": "2026-09-10T09:00:00Z", "actor": "buyer", "event": "rfq_requested", "revision": 1},
+    {"at": "2026-09-10T11:00:00Z", "actor": "business", "event": "quote_revised", "revision": 2},
+    {"at": "2026-09-10T12:00:00Z", "actor": "buyer", "event": "quote_accepted", "revision": 2}
+  ],
+  "term_artifact": {
+    "id": "quote-1001", "revision": 2,
+    "issuer": {"id": "business-shopware-1", "role": "business"},
+    "authorized_by": "business-shopware-1", "buyer_scope": "buyer-acme",
+    "acceptance": {"state": "accepted", "accepted_by": "buyer-acme", "accepted_at": "2026-09-10T12:00:00Z", "accepted_revision": 2, "provenance": "buyer action recorded against merchant revision 2"},
+    "expires_at": "2026-09-15T00:00:00Z",
+    "commitment": {"type": "accepted_revalidate", "invalidation_conditions": []},
+    "currency": "USD",
+    "lines": [{"item_id": "SKU-A", "quantity": 10, "unit_price": 9000}],
+    "commercial_terms": ["unit price includes volume discount", "freight recalculated at binding"]
+  },
+  "binding_request": {"at": "2026-09-10T12:05:00Z", "target": "checkout", "artifact_id": "quote-1001", "revision": 2, "issuer": {"id": "business-shopware-1", "role": "business"}, "buyer": "buyer-acme", "acceptance_state": "accepted", "accepted_revision": 2, "currency": "USD", "lines": [{"item_id": "SKU-A", "quantity": 10, "unit_price": 9000}], "commercial_terms": ["unit price includes volume discount", "freight recalculated at binding"]},
+  "business_state": {"artifact_known": true, "artifact_authentic": true, "issuer_authorized": true, "current_revision": 2, "origin_available": true, "revalidation_passes": true, "revalidation_reason": null, "active_invalidation_conditions": []},
+  "expected": {"recognized": true, "artifact_valid": true, "bindable": true, "outcome": "bound", "reason": "bound"},
+  "model_requirements": {
+    "opaque_reference": {"requires": ["stable_identity", "authoritative_resolution", "current_revision_check", "buyer_scope_check", "item_quantity_scope_check", "expiry_check", "acceptance_provenance"], "expected_verdict": "PASS", "rationale": "An available Business resolver can recover and validate the full accepted revision."},
+    "portable_artifact": {"requires": ["stable_identity", "authoritative_resolution", "buyer_scope_check", "item_quantity_scope_check", "expiry_check", "acceptance_provenance", "portable_scope_visibility"], "expected_verdict": "AMBIGUOUS", "rationale": "The values are visible, but the bare model does not say how the Business authenticates or authorizes them."}
+  },
+  "invariants": ["I1", "I2", "I3", "I4", "I5", "I7", "I8", "I9", "I12"]
+}

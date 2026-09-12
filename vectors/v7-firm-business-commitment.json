@@ -1,0 +1,28 @@
+{
+  "id": "V7",
+  "title": "Firm Business commitment survives unfavorable state drift",
+  "timeline": [
+    {"at": "2026-09-10T09:00:00Z", "actor": "business", "event": "firm_quote_issued", "revision": 1},
+    {"at": "2026-09-10T10:00:00Z", "actor": "buyer", "event": "firm_quote_accepted", "revision": 1},
+    {"at": "2026-09-10T10:30:00Z", "actor": "business", "event": "contract_tier_changed_without_declared_invalidation", "revision": 1},
+    {"at": "2026-09-10T11:00:00Z", "actor": "platform", "event": "binding_attempted", "revision": 1}
+  ],
+  "term_artifact": {
+    "id": "quote-7001", "revision": 1,
+    "issuer": {"id": "business-shopware-1", "role": "business"},
+    "authorized_by": "business-shopware-1", "buyer_scope": "buyer-acme",
+    "acceptance": {"state": "accepted", "accepted_by": "buyer-acme", "accepted_at": "2026-09-10T10:00:00Z", "accepted_revision": 1, "provenance": "buyer accepted a Business-issued firm commitment"},
+    "expires_at": "2026-09-15T00:00:00Z",
+    "commitment": {"type": "business_firm", "invalidation_conditions": ["fraud_confirmed", "buyer_requested_scope_change"]},
+    "currency": "USD", "lines": [{"item_id": "SKU-A", "quantity": 10, "unit_price": 9000}],
+    "commercial_terms": ["Business commits to price and quantity until expiry"]
+  },
+  "binding_request": {"at": "2026-09-10T11:00:00Z", "target": "checkout", "artifact_id": "quote-7001", "revision": 1, "issuer": {"id": "business-shopware-1", "role": "business"}, "buyer": "buyer-acme", "acceptance_state": "accepted", "accepted_revision": 1, "currency": "USD", "lines": [{"item_id": "SKU-A", "quantity": 10, "unit_price": 9000}], "commercial_terms": ["Business commits to price and quantity until expiry"]},
+  "business_state": {"artifact_known": true, "artifact_authentic": true, "issuer_authorized": true, "current_revision": 1, "origin_available": true, "revalidation_passes": false, "revalidation_reason": "buyer_contract_tier_changed", "active_invalidation_conditions": []},
+  "expected": {"recognized": true, "artifact_valid": true, "bindable": true, "outcome": "bound", "reason": "bound"},
+  "model_requirements": {
+    "opaque_reference": {"requires": ["authoritative_resolution", "business_commitment_resolution"], "expected_verdict": "PASS", "rationale": "The Business resolver knows it issued a firm commitment and that no declared invalidation condition applies."},
+    "portable_artifact": {"requires": ["portable_commitment_visibility", "business_commitment_resolution"], "expected_verdict": "AMBIGUOUS", "rationale": "The commitment is explicit, but the bare model still needs proof that the named Business truly authorized it and its invalidation policy."}
+  },
+  "invariants": ["I6", "I7", "I8", "I9", "I11", "I12"]
+}
