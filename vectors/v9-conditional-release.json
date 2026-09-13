@@ -1,0 +1,37 @@
+{
+  "id": "V9",
+  "title": "Conditional release preserves terms and fails explicitly",
+  "timeline": [
+    {"at": "2026-09-12T09:00:00Z", "actor": "business", "event": "conditional_quote_issued", "revision": 1},
+    {"at": "2026-09-12T09:30:00Z", "actor": "buyer", "event": "quote_accepted", "revision": 1},
+    {"at": "2026-09-12T10:00:00Z", "actor": "business", "event": "terms_bound_release_pending", "revision": 1},
+    {"at": "2026-09-13T10:00:00Z", "actor": "business", "event": "freight_market_changed_without_repricing", "revision": 1},
+    {"at": "2026-09-14T10:00:00Z", "actor": "release_authority", "event": "delivery_confirmation_failed", "revision": 1}
+  ],
+  "term_artifact": {
+    "id": "quote-9001", "revision": 1,
+    "issuer": {"id": "business-shopware-1", "role": "business"},
+    "authorized_by": "business-shopware-1", "buyer_scope": "buyer-acme",
+    "acceptance": {"state": "accepted", "accepted_by": "buyer-acme", "accepted_at": "2026-09-12T09:30:00Z", "accepted_revision": 1, "provenance": "buyer accepted fixed terms with conditional settlement"},
+    "expires_at": "2026-09-13T00:00:00Z",
+    "commitment": {"type": "business_firm", "invalidation_conditions": ["fraud_confirmed"]},
+    "currency": "USD", "lines": [{"line_id": "L1", "item_id": "SKU-C", "quantity": 1, "unit_price": 125000}],
+    "commercial_terms": ["price and freight fixed at binding", "settlement requires confirmed delivery"]
+  },
+  "binding_request": {"at": "2026-09-12T10:00:00Z", "target": "checkout", "artifact_id": "quote-9001", "revision": 1, "issuer": {"id": "business-shopware-1", "role": "business"}, "buyer": "buyer-acme", "acceptance_state": "accepted", "accepted_revision": 1, "currency": "USD", "lines": [{"line_id": "L1", "item_id": "SKU-C", "quantity": 1, "unit_price": 125000}], "commercial_terms": ["price and freight fixed at binding", "settlement requires confirmed delivery"]},
+  "business_state": {"artifact_known": true, "artifact_authentic": true, "issuer_authorized": true, "current_revision": 1, "origin_available": true, "revalidation_passes": true, "revalidation_reason": null, "active_invalidation_conditions": []},
+  "post_bind": {
+    "bound_at": "2026-09-12T10:00:00Z",
+    "transaction": {"id": "checkout-9001", "valid_until": "2026-09-20T00:00:00Z"},
+    "governing_semantics": {"mode": "conditional_release", "post_bind_valid_until": null, "release_condition": "delivery_confirmed", "execution_invalidation_conditions": []},
+    "events": [{"at": "2026-09-12T10:00:00Z", "event": "release_pending"}, {"at": "2026-09-13T10:00:00Z", "event": "freight_market_changed_without_repricing"}],
+    "execution_attempt": {"at": "2026-09-14T10:00:00Z", "release_condition_met": false, "active_invalidation_conditions": [], "terms_unchanged": true},
+    "expected": {"status": "release_condition_failed", "reason": "delivery_not_confirmed", "executed": false, "terms_preserved": true}
+  },
+  "expected": {"recognized": true, "artifact_valid": true, "bindable": true, "outcome": "bound", "reason": "bound"},
+  "model_requirements": {
+    "opaque_reference": {"requires": ["business_commitment_resolution", "transaction_lifecycle", "conditional_release"], "expected_verdict": "AMBIGUOUS", "rationale": "Business resolution can lock terms, but the reference model alone does not carry release state or failure semantics."},
+    "portable_artifact": {"requires": ["portable_commitment_visibility", "transaction_lifecycle", "conditional_release"], "expected_verdict": "AMBIGUOUS", "rationale": "Portable terms expose the condition, but authoritative release evaluation still needs a transaction-level contract."}
+  },
+  "invariants": ["I8", "I11", "I13", "I14", "I15", "I20"]
+}

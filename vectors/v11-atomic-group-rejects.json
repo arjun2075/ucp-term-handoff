@@ -1,0 +1,29 @@
+{
+  "id": "V11",
+  "title": "Cross-line volume-price group rejects atomically",
+  "timeline": [
+    {"at": "2026-09-12T09:00:00Z", "actor": "business", "event": "bundle_quote_issued", "revision": 2},
+    {"at": "2026-09-12T09:30:00Z", "actor": "buyer", "event": "bundle_quote_accepted", "revision": 2},
+    {"at": "2026-09-12T10:00:00Z", "actor": "business", "event": "required_bundle_line_unavailable", "revision": 2}
+  ],
+  "term_artifact": {
+    "id": "quote-11001", "revision": 2,
+    "issuer": {"id": "business-shopware-1", "role": "business"},
+    "authorized_by": "business-shopware-1", "buyer_scope": "buyer-acme",
+    "acceptance": {"state": "accepted", "accepted_by": "buyer-acme", "accepted_at": "2026-09-12T09:30:00Z", "accepted_revision": 2, "provenance": "buyer accepted one four-line atomic volume-price group"},
+    "expires_at": "2026-09-18T00:00:00Z",
+    "commitment": {"type": "accepted_revalidate", "invalidation_conditions": []},
+    "currency": "USD",
+    "lines": [{"line_id":"L1","item_id":"BUNDLE-A","quantity":10,"unit_price":5000},{"line_id":"L2","item_id":"BUNDLE-B","quantity":10,"unit_price":4000},{"line_id":"L3","item_id":"BUNDLE-C","quantity":10,"unit_price":3000},{"line_id":"L4","item_id":"FREIGHT","quantity":1,"unit_price":10000}],
+    "commercial_terms": ["prices require all three product lines and shared freight basis"]
+  },
+  "binding_request": {"at":"2026-09-12T10:05:00Z","target":"checkout","artifact_id":"quote-11001","revision":2,"issuer":{"id":"business-shopware-1","role":"business"},"buyer":"buyer-acme","acceptance_state":"accepted","accepted_revision":2,"currency":"USD","lines":[{"line_id":"L1","item_id":"BUNDLE-A","quantity":10,"unit_price":5000},{"line_id":"L2","item_id":"BUNDLE-B","quantity":10,"unit_price":4000},{"line_id":"L3","item_id":"BUNDLE-C","quantity":10,"unit_price":3000},{"line_id":"L4","item_id":"FREIGHT","quantity":1,"unit_price":10000}],"commercial_terms":["prices require all three product lines and shared freight basis"]},
+  "business_state": {"artifact_known":true,"artifact_authentic":true,"issuer_authorized":true,"current_revision":2,"origin_available":true,"revalidation_passes":true,"revalidation_reason":null,"active_invalidation_conditions":[]},
+  "binding_units": [{"id":"BUNDLE-1","accepted_revision":2,"line_ids":["L1","L2","L3","L4"],"atomicity_mode":"all_or_nothing","idempotency_key":"bind-quote-11001-r2-BUNDLE-1-checkout-11001","target_transaction":"checkout-11001","prior_binding":null,"unavailable_line_ids":["L3"],"expected":{"binding_unit_id":"BUNDLE-1","result":"binding_unit_rejected","reason":"line_unavailable","effective_bound_line_ids":[],"newly_bound_line_ids":[]}}],
+  "expected": {"recognized":true,"artifact_valid":true,"bindable":false,"outcome":"recognized_rejected","reason":"binding_unit_rejected","unit_results":[{"binding_unit_id":"BUNDLE-1","result":"binding_unit_rejected","reason":"line_unavailable","effective_bound_line_ids":[],"newly_bound_line_ids":[]}],"effective_bound_line_count":0,"newly_bound_line_count":0,"failed_line_count":4},
+  "model_requirements": {
+    "opaque_reference": {"requires": ["authoritative_resolution", "atomicity_resolution"], "expected_verdict": "PASS", "rationale": "The Business resolver can preserve the native cross-line dependency and reject the entire group."},
+    "portable_artifact": {"requires": ["atomicity_visibility", "item_quantity_scope_check"], "expected_verdict": "PASS", "rationale": "An explicit portable group prevents consumers from treating the four commercial dependencies as independent lines."}
+  },
+  "invariants": ["I3", "I9", "I12", "I16", "I17", "I18", "I19"]
+}

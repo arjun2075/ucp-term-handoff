@@ -12,7 +12,15 @@
     "portable_scope_visibility": "FAIL",
     "portable_commitment_visibility": "FAIL",
     "business_commitment_resolution": "PASS",
-    "origin_independent_verification": "FAIL"
+    "origin_independent_verification": "FAIL",
+    "post_bind_authority": "AMBIGUOUS",
+    "transaction_lifecycle": "AMBIGUOUS",
+    "dual_clock_rule": "AMBIGUOUS",
+    "conditional_release": "AMBIGUOUS",
+    "binding_unit_results": "AMBIGUOUS",
+    "binding_unit_idempotency": "AMBIGUOUS",
+    "atomicity_resolution": "PASS",
+    "atomicity_visibility": "FAIL"
   },
   "portable_artifact": {
     "stable_identity": "PASS",
@@ -26,6 +34,14 @@
     "portable_scope_visibility": "PASS",
     "portable_commitment_visibility": "PASS",
     "business_commitment_resolution": "AMBIGUOUS",
-    "origin_independent_verification": "AMBIGUOUS"
+    "origin_independent_verification": "AMBIGUOUS",
+    "post_bind_authority": "PASS",
+    "transaction_lifecycle": "AMBIGUOUS",
+    "dual_clock_rule": "PASS",
+    "conditional_release": "AMBIGUOUS",
+    "binding_unit_results": "PASS",
+    "binding_unit_idempotency": "AMBIGUOUS",
+    "atomicity_resolution": "AMBIGUOUS",
+    "atomicity_visibility": "PASS"
   }
 }

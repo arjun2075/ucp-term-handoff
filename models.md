@@ -8,6 +8,8 @@ Strengths: the Business controls resolution and authenticity; sensitive terms ne
 
 An opaque reference is not intrinsically safe. Safety requires the resolver to bind the reference to the authenticated buyer and expose a current revision, exact scope, issuer authorization, commitment type, and classified result. A lookup that merely returns a price silently delegates price-setting authority to the referenced system.
 
+After binding, the reference alone does not establish whether authority transferred into the transaction, whether the origin must remain reachable, or which clock governs execution. The Business can retain these facts internally, but interoperability requires them in the authoritative transaction lifecycle/result contract. Partial binding similarly requires the Business response to expose stable binding-unit membership and replay identity; a single artifact-wide status is insufficient.
+
 ## Model B — minimal portable accepted-term artifact
 
 A normalized artifact carries identity, revision, parties, scope, commercial values, validity window, acceptance provenance, and commitment semantics into binding. The Business compares it with the request and returns authoritative transaction state.
@@ -15,6 +17,8 @@ A normalized artifact carries identity, revision, parties, scope, commercial val
 Strengths: scope and commitment are inspectable; intermediary implementations can preserve and log the same semantics; origin downtime need not prevent structural checks. Weaknesses: portable values are dangerous without content-bound issuer authentication and a current-revision/revocation source; normalization can lose mechanism-specific meaning; copied values can be mistaken for authoritative transaction state.
 
 The Business may rely on portable values only to the extent authorized by verifiable provenance and commitment semantics. Under `accepted_revalidate`, they are an assertion to check, not a command to set a price. Under `business_firm`, verified Business-issued values are binding within their scope and validity window, except for declared invalidation conditions. In neither case may the holder directly mutate Cart/Checkout.
+
+Portable post-bind rules can make authority, clocks, release conditions, and atomic groups inspectable, but visibility is not enforcement. Execution still needs an authoritative transaction state machine, and binding-unit retries still need server-side deduplication. A portable group declaration is unsafe unless issuer authorization covers the exact group membership and cross-line commercial conditions.
 
 ## Equivalent comparison
 
@@ -30,15 +34,35 @@ The Business may rely on portable values only to the extent authorized by verifi
 | origin unavailable | Binding normally fails closed; cached resolution needs freshness rules | Local structural evaluation continues, but authority/currentness may remain indeterminate |
 | data minimization | Strong | More commercial/customer data crosses boundaries |
 | semantic loss | Resolver retains native detail | Normalization risks omitting conditions or pricing basis |
+| post-bind authority | Can remain Business-internal, but is ambiguous to other participants without transaction semantics | Can be declared portably, but the transaction must enforce it |
+| dual clocks | Resolver can apply a rule, but a bare reference does not reveal it | Can carry a rule; still needs authoritative clock evaluation |
+| origin dependency at release | Natural if release re-resolves; origin outage can block execution | Can support offline inspection, but authority/currentness may still depend on origin or verifier availability |
+| partial binding | Requires explicit grouped results from the Business | Can carry group membership and results; the Business remains authoritative |
+| atomicity | Native dependencies are available to the resolver | Cross-line dependencies must survive normalization and be integrity-bound |
+| retry recognition | Server can deduplicate, but artifact-level identity is too coarse | Unit replay identity can travel, but deduplication remains server-side |
 
 ## Derived hybrid
 
-The vectors suggest—but do not require—a hybrid: portable, inspectable semantics plus a Business-authoritative reference/introspection path. The portable portion enables preflight, preservation, audit, and cross-implementation transport. The Business reference supplies issuer authorization, current revision/revocation, and native conditions. Binding compares both and fails closed on disagreement.
+The vectors suggest—but do not require—a hybrid: portable, inspectable semantics plus a Business-authoritative reference/introspection path. The portable portion enables preflight, preservation, audit, cross-implementation transport, post-bind rule visibility, and atomic-group visibility. The Business reference supplies issuer authorization, current revision/revocation, and native conditions. Binding compares both and fails closed on disagreement.
 
-The hybrid inherits a synchronization problem: it needs an explicit rule for which facts are authoritative and what mismatch means. A reasonable experimental rule is that portable semantics are a content-bound snapshot, the Business record decides currentness and declared invalidation state, and any mismatch is a classified non-binding result rather than silent repair.
+The hybrid inherits a synchronization problem: it needs an explicit rule for which facts are authoritative and what mismatch means. V8–V11 add further requirements rather than making the hybrid an automatic winner: an authoritative post-bind state machine, explicit dual-clock semantics, integrity-bound unit membership, and unit-granular idempotency. A reasonable experimental rule is that portable semantics are a content-bound snapshot, the Business record decides currentness and declared invalidation state, and any mismatch is a classified non-binding result rather than silent repair.
 
 ## Origin-unavailable behavior
 
 - Opaque model: `unavailable`, not `unknown` or `invalid`; retry may succeed. Cached resolution is safe only with explicit freshness and revocation rules.
 - Portable model: structural validity and scope can still be checked, but authority/current-revision status is `indeterminate` unless self-verification and offline-valid commitment rules were declared.
 - Hybrid: may honor an offline-verifiable firm commitment only if the Business deliberately accepted that availability tradeoff; otherwise fail closed as `authority_indeterminate`.
+
+At release, origin unavailability is governed by the declared post-bind model. Authority transferred at bind may permit execution from authoritative transaction state. Continued-origin or continued-term validation must fail closed or remain pending. Conditional release may depend on a release authority rather than the quote origin; that dependency must be explicit.
+
+## New-case assessment
+
+| Question | Opaque reference | Portable artifact | Hybrid |
+|---|---|---|---|
+| represent post-bind authority | Only through added transaction response semantics | Can declare it, but cannot enforce it alone | Can align visible rule with Business state; still needs lifecycle protocol |
+| establish continued origin dependence | Resolver behavior can establish it but may not expose it | Can declare dependency; proof of currentness remains external | Reference makes dependency explicit at the cost of availability |
+| represent partial binding | Added Business unit-result contract required | Unit semantics can travel; authoritative results still required | Portable groups plus Business results are useful but not sufficient by themselves |
+| declare atomicity | Native resolver model | Integrity-bound portable group | Both views can be compared; disagreement must fail closed |
+| recognize already-bound units | Business-side unit deduplication required | Replay identity can travel but does not deduplicate itself | Same server-side requirement; reference helps locate prior state |
+
+No model handles V8–V10 without additional transaction-lifecycle or binding-operation semantics. Both can express V11 once the grouping is authoritative. The new cases narrow the experiment but do not select a universal carrier.

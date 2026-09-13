@@ -7,7 +7,7 @@
   "additionalProperties": false,
   "required": ["id", "title", "timeline", "term_artifact", "binding_request", "business_state", "expected", "model_requirements", "invariants"],
   "properties": {
-    "id": {"type": "string", "pattern": "^V[1-7]$"},
+    "id": {"type": "string", "pattern": "^V(?:[1-9]|1[01])$"},
     "title": {"type": "string", "minLength": 1},
     "timeline": {
       "type": "array",
@@ -18,7 +18,7 @@
         "required": ["at", "actor", "event", "revision"],
         "properties": {
           "at": {"type": "string", "format": "date-time"},
-          "actor": {"enum": ["buyer", "business", "human_approver", "platform"]},
+          "actor": {"enum": ["buyer", "business", "human_approver", "platform", "execution_system", "release_authority"]},
           "event": {"type": "string", "minLength": 1},
           "revision": {"type": "integer", "minimum": 1}
         }
@@ -27,6 +27,12 @@
     "term_artifact": {"$ref": "#/definitions/artifact"},
     "binding_request": {"$ref": "#/definitions/binding"},
     "business_state": {"$ref": "#/definitions/businessState"},
+    "post_bind": {"$ref": "#/definitions/postBind"},
+    "binding_units": {
+      "type": "array",
+      "minItems": 1,
+      "items": {"$ref": "#/definitions/bindingUnit"}
+    },
     "expected": {"$ref": "#/definitions/expected"},
     "model_requirements": {
       "type": "object",
@@ -41,7 +47,7 @@
       "type": "array",
       "minItems": 1,
       "uniqueItems": true,
-      "items": {"type": "string", "pattern": "^I(?:[1-9]|1[0-2])$"}
+      "items": {"type": "string", "pattern": "^I(?:[1-9]|1[0-9]|20)$"}
     }
   },
   "definitions": {
@@ -59,6 +65,7 @@
       "additionalProperties": false,
       "required": ["item_id", "quantity", "unit_price"],
       "properties": {
+        "line_id": {"type": "string", "minLength": 1},
         "item_id": {"type": "string", "minLength": 1},
         "quantity": {"type": "integer", "minimum": 1},
         "unit_price": {"type": "integer", "minimum": 0}
@@ -134,6 +141,123 @@
         "active_invalidation_conditions": {"type": "array", "uniqueItems": true, "items": {"type": "string", "minLength": 1}}
       }
     },
+    "postBind": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["bound_at", "transaction", "governing_semantics", "events", "execution_attempt", "expected"],
+      "properties": {
+        "bound_at": {"type": "string", "format": "date-time"},
+        "transaction": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["id", "valid_until"],
+          "properties": {
+            "id": {"type": "string", "minLength": 1},
+            "valid_until": {"type": "string", "format": "date-time"}
+          }
+        },
+        "governing_semantics": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["mode", "post_bind_valid_until", "release_condition", "execution_invalidation_conditions"],
+          "properties": {
+            "mode": {"enum": ["authority_transfers_at_bind", "term_expiry_continues", "post_bind_deadline", "conditional_release"]},
+            "post_bind_valid_until": {"type": ["string", "null"], "format": "date-time"},
+            "release_condition": {"type": ["string", "null"]},
+            "execution_invalidation_conditions": {"type": "array", "uniqueItems": true, "items": {"type": "string", "minLength": 1}}
+          }
+        },
+        "events": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["at", "event"],
+            "properties": {
+              "at": {"type": "string", "format": "date-time"},
+              "event": {"type": "string", "minLength": 1}
+            }
+          }
+        },
+        "execution_attempt": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["at", "release_condition_met", "active_invalidation_conditions", "terms_unchanged"],
+          "properties": {
+            "at": {"type": "string", "format": "date-time"},
+            "release_condition_met": {"type": ["boolean", "null"]},
+            "active_invalidation_conditions": {"type": "array", "uniqueItems": true, "items": {"type": "string", "minLength": 1}},
+            "terms_unchanged": {"type": "boolean"}
+          }
+        },
+        "expected": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["status", "reason", "executed", "terms_preserved"],
+          "properties": {
+            "status": {"enum": ["bound_not_executable", "release_pending", "release_condition_failed", "post_bind_invalidated", "executed"]},
+            "reason": {"enum": ["executed", "release_condition_pending", "delivery_not_confirmed", "inventory_allocation_changed", "term_expired_after_binding", "post_bind_deadline_elapsed", "commercial_terms_reinterpreted"]},
+            "executed": {"type": "boolean"},
+            "terms_preserved": {"type": "boolean"}
+          }
+        }
+      }
+    },
+    "bindingUnit": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "accepted_revision", "line_ids", "atomicity_mode", "idempotency_key", "target_transaction", "prior_binding", "unavailable_line_ids", "expected"],
+      "properties": {
+        "id": {"type": "string", "minLength": 1},
+        "accepted_revision": {"type": "integer", "minimum": 1},
+        "line_ids": {"type": "array", "minItems": 1, "uniqueItems": true, "items": {"type": "string", "minLength": 1}},
+        "atomicity_mode": {"enum": ["all_or_nothing"]},
+        "idempotency_key": {"type": "string", "minLength": 1},
+        "target_transaction": {"type": "string", "minLength": 1},
+        "prior_binding": {
+          "type": ["object", "null"],
+          "additionalProperties": false,
+          "required": ["artifact_id", "revision", "binding_unit_id", "line_ids", "idempotency_key", "target_transaction"],
+          "properties": {
+            "artifact_id": {"type": "string", "minLength": 1},
+            "revision": {"type": "integer", "minimum": 1},
+            "binding_unit_id": {"type": "string", "minLength": 1},
+            "line_ids": {"type": "array", "minItems": 1, "uniqueItems": true, "items": {"type": "string", "minLength": 1}},
+            "idempotency_key": {"type": "string", "minLength": 1},
+            "target_transaction": {"type": "string", "minLength": 1}
+          }
+        },
+        "prior_failure": {
+          "type": ["object", "null"],
+          "additionalProperties": false,
+          "required": ["artifact_id", "revision", "binding_unit_id", "line_ids", "idempotency_key", "target_transaction", "reason"],
+          "properties": {
+            "artifact_id": {"type": "string", "minLength": 1},
+            "revision": {"type": "integer", "minimum": 1},
+            "binding_unit_id": {"type": "string", "minLength": 1},
+            "line_ids": {"type": "array", "minItems": 1, "uniqueItems": true, "items": {"type": "string", "minLength": 1}},
+            "idempotency_key": {"type": "string", "minLength": 1},
+            "target_transaction": {"type": "string", "minLength": 1},
+            "reason": {"enum": ["line_unavailable", "stale_revision", "atomicity_violation"]}
+          }
+        },
+        "unavailable_line_ids": {"type": "array", "uniqueItems": true, "items": {"type": "string", "minLength": 1}},
+        "expected": {"$ref": "#/definitions/unitResult"}
+      }
+    },
+    "unitResult": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["binding_unit_id", "result", "reason", "effective_bound_line_ids", "newly_bound_line_ids"],
+      "properties": {
+        "binding_unit_id": {"type": "string", "minLength": 1},
+        "result": {"enum": ["bound", "binding_unit_rejected", "idempotent_replay"]},
+        "reason": {"enum": ["bound", "line_unavailable", "already_bound", "idempotency_conflict", "stale_revision", "atomicity_violation"]},
+        "effective_bound_line_ids": {"type": "array", "uniqueItems": true, "items": {"type": "string", "minLength": 1}},
+        "newly_bound_line_ids": {"type": "array", "uniqueItems": true, "items": {"type": "string", "minLength": 1}}
+      }
+    },
     "expected": {
       "type": "object",
       "additionalProperties": false,
@@ -142,8 +266,12 @@
         "recognized": {"type": "boolean"},
         "artifact_valid": {"type": "boolean"},
         "bindable": {"type": "boolean"},
-        "outcome": {"enum": ["bound", "invalid_artifact", "recognized_rejected"]},
-        "reason": {"enum": ["bound", "malformed_artifact", "unknown_artifact", "forged_artifact", "unauthorized_issuer", "identity_mismatch", "stale_revision", "not_accepted", "expired", "scope_expansion", "currency_mismatch", "commercial_terms_mismatch", "business_revalidation_failed", "firm_commitment_invalidated"]}
+        "outcome": {"enum": ["bound", "invalid_artifact", "recognized_rejected", "partially_bound"]},
+        "reason": {"enum": ["bound", "malformed_artifact", "unknown_artifact", "forged_artifact", "unauthorized_issuer", "identity_mismatch", "stale_revision", "not_accepted", "expired", "scope_expansion", "scope_contraction", "currency_mismatch", "commercial_terms_mismatch", "business_revalidation_failed", "firm_commitment_invalidated", "partial_binding", "binding_unit_rejected"]},
+        "unit_results": {"type": "array", "minItems": 1, "items": {"$ref": "#/definitions/unitResult"}},
+        "effective_bound_line_count": {"type": "integer", "minimum": 0},
+        "newly_bound_line_count": {"type": "integer", "minimum": 0},
+        "failed_line_count": {"type": "integer", "minimum": 0}
       }
     },
     "modelExpectation": {

@@ -2,16 +2,32 @@
 
 ## Result summary
 
-The vectors support neither “accepted always means executable” nor “the Business may always revalidate.” The decisive semantic is the declared commitment:
+The eleven vectors now cover two boundaries:
 
-- `accepted_revalidate` permits a valid, recognized artifact to be rejected because current Business conditions fail (V6).
-- Under this harness's modeled `business_firm` semantics, the Business is obligated during the validity window unless an explicitly declared invalidation condition applies (V7). This is not asserted as current UCP behavior.
+1. accepted terms → authoritative Cart/Checkout binding (V1–V7); and
+2. bound transaction → execution/release, including grouped partial binding (V8–V11).
 
-Both bare handoff representations need more than a carrier. An opaque reference needs a portable binding-result contract and hides preflight semantics. A portable artifact needs content-bound authenticity, issuer authorization, and revision freshness. This points to a hybrid as a useful experiment, but the evidence does not yet establish that a hybrid is the only acceptable protocol shape.
+The original conclusion remains: preservation, authority provenance, commitment semantics, and revalidation are independent. The extension adds two more independent concerns: post-bind lifecycle semantics and binding-unit atomicity/idempotency. “Bound” is not synonymous with “executed,” and “partial” is meaningful only when the accepted commercial scope declares independent units.
+
+## What Weston's review validated
+
+Weston's [latest #812 review](https://github.com/Universal-Commerce-Protocol/ucp/discussions/812#discussioncomment-18414304) confirms that I7–I11 match the authority problem and that separating `issuer` from `authorized_by` makes the no-authority-escalation check mechanically verifiable. This revision preserves those invariants and V1–V7 byte-for-byte.
+
+The review identified two gaps in the single-evaluation assumption behind I12:
+
+- state can drift after successful binding but before execution, while term expiry and transaction lifetime may be different clocks; and
+- artifact-wide results cannot safely represent partial success, but naïve per-line binding breaks cross-line commercial dependencies.
+
+## What V8–V11 add
+
+- **V8 post-bind drift:** a valid artifact binds, then a declared execution condition changes. The result is `post_bind_invalidated`, not silent repricing and not retroactive artifact invalidity.
+- **V9 conditional release:** commercial terms lock at binding while settlement waits for delivery confirmation. Drift does not reprice; a failed condition produces `release_condition_failed`.
+- **V10 independent units:** a 40-line award has four independent binding units. Three units covering 38 lines are effectively bound, including one idempotent replay; the two-line failed unit is explicit and remains failed on replay without a new transition. No line disappears silently.
+- **V11 atomic group:** four lines share bundle/volume/freight semantics. One unavailable required line rejects the whole unit, proving that per-line binding is insufficient.
 
 ## Executed model matrix
 
-`PASS` means the bare model's declared mechanisms are sufficient for the property exercised. `AMBIGUOUS` means additional semantics are required. `FAIL` would mean the model contradicts the scenario; none of the seven scenarios proves such a contradiction.
+`PASS` means the bare model's declared mechanisms are sufficient for the property exercised. `AMBIGUOUS` means additional semantics are required. `FAIL` means a declared bare-model capability contradicts a required property. The scorer computes this table from `models/model-capabilities.json` and each vector.
 
 | Vector | Opaque reference | Portable artifact | Semantic outcome |
 |---|---|---|---|
@@ -21,78 +37,103 @@ Both bare handoff representations need more than a carrier. An opaque reference 
 | V4 scope mutation | PASS | PASS | invalid: scope expansion |
 | V5 expiry | PASS | PASS | invalid: expired |
 | V6 Business rejects at binding | AMBIGUOUS | AMBIGUOUS | valid + recognized, but rejected |
-| V7 firm Business commitment | PASS | AMBIGUOUS | bound despite unrelated state drift |
+| V7 modeled firm commitment | PASS | AMBIGUOUS | bound despite unrelated pre-bind drift |
+| V8 post-bind state drift | AMBIGUOUS | AMBIGUOUS | bound, later post-bind invalidated |
+| V9 conditional release | AMBIGUOUS | AMBIGUOUS | bound, release condition failed |
+| V10 partial independent units | AMBIGUOUS | AMBIGUOUS | 38/40 effectively bound; two explicitly failed |
+| V11 atomic group rejects | PASS | PASS | complete binding unit rejected |
 
-The scorer produces this matrix from `models/model-capabilities.json` and each vector's explicit requirements. It does not choose a preferred winner.
+The new vectors do not force a hybrid winner. They show that every carrier needs additional authoritative transaction-lifecycle semantics for V8–V9 and unit-granular binding/idempotency semantics for V10. Both models can preserve an authoritative atomic grouping in V11.
+
+## Revised candidate invariant set
+
+All statements are **candidate invariants derived from implementation and review evidence**, not current UCP requirements.
+
+| Range | Candidate invariants |
+|---|---|
+| I1–I5 | Preserve identity, current revision, bounded scope, expiry, and acceptance provenance. |
+| I6–I11 | Separate validity from executability; expose issuer/authorization and commitment; prevent authority escalation; represent permitted rejection; preserve modeled firm commitments. |
+| I12 | Make binding deterministic for fixed artifact revision, request, Business state, and evaluation time. |
+| I13–I15 | Separate binding from execution; declare post-bind authority; make the term-expiry/transaction-lifetime relationship explicit. |
+| I16–I18 | Forbid silent contraction; permit partial success only through explicit independent units; preserve cross-line atomicity. |
+| I19 | Make retries idempotent at artifact + revision + binding unit membership + target transaction granularity. |
+| I20 | Conditional release preserves agreed terms and reports non-release rather than silently repricing. |
+
+The normative-style detail and test consequences are in `invariants.md`.
 
 ## Invariant coverage matrix
 
-| Candidate | V1 | V2 | V3 | V4 | V5 | V6 | V7 |
-|---|:---:|:---:|:---:|:---:|:---:|:---:|:---:|
-| I1 identity survives | ✓ | ✓ | ✓ |  |  |  |  |
-| I2 stale revision cannot bind | ✓ | ✓ |  |  |  |  |  |
-| I3 scope cannot silently expand | ✓ |  |  | ✓ |  |  |  |
-| I4 expired terms cannot bind | ✓ | ✓ |  |  | ✓ |  |  |
-| I5 acceptance provenance survives | ✓ | ✓ | ✓ |  |  |  |  |
-| I6 validity differs from executability |  |  |  |  |  | ✓ | ✓ |
-| I7 authority provenance is explicit | ✓ |  | ✓ |  |  | ✓ | ✓ |
-| I8 commitment type is explicit | ✓ |  |  |  | ✓ | ✓ | ✓ |
-| I9 transaction gains no extra authority | ✓ |  |  | ✓ |  | ✓ | ✓ |
-| I10 revalidation rejection is representable |  |  |  |  |  | ✓ |  |
-| I11 firm commitment is not arbitrarily invalidated |  |  |  |  | ✓ |  | ✓ |
-| I12 fixed inputs bind deterministically | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
+| Candidate | Covered by |
+|---|---|
+| I1 identity | V1, V2, V3, V8 |
+| I2 revision | V1, V2, V10 |
+| I3 no scope expansion | V1, V4, V10 |
+| I4 expiry | V1, V2, V5 |
+| I5 acceptance provenance | V1, V2, V3 |
+| I6 validity ≠ executability | V6, V7, V8 |
+| I7 authority provenance | V1, V3, V6, V7 |
+| I8 commitment type | V1, V5, V6, V7, V8, V9 |
+| I9 no authority escalation | V1, V4, V6, V7 |
+| I10 classified revalidation rejection | V6 |
+| I11 modeled firm commitment | V5, V7, V9 |
+| I12 deterministic binding | V1–V8, V10, V11 |
+| I13 binding ≠ execution | V8, V9 |
+| I14 post-bind authority explicit | V8, V9 |
+| I15 dual clocks explicit | V8, V9 |
+| I16 no silent contraction | V10, V11 |
+| I17 explicit partial success | V10 |
+| I18 cross-line atomicity | V10, V11 |
+| I19 unit-granular idempotency | V10 |
+| I20 conditional release preserves terms | V9 |
 
-## Equivalent comparison dimensions
+## Result taxonomy
 
-| Dimension | Opaque reference | Portable artifact |
-|---|---|---|
-| interoperability | Low without a shared resolver and result contract | Higher semantic visibility, but only if normalization is shared |
-| integrity | Strong when resolved from a Business-controlled store | Requires content-bound signature/MAC or equivalent trust mechanism |
-| replay/staleness | Natural current-revision lookup; must be mandatory | Revision is visible, but supersession requires online status, short lifetime, or revocation semantics |
-| scope verification | Business can verify; Platform cannot preflight | Both parties can inspect; Business still makes the authoritative comparison |
-| modification detection | Resolver avoids client-side mutation; reference substitution remains a threat | Cryptographic or channel binding is required for every relied-upon field |
-| authority ambiguity | Hidden unless resolution states issuer and commitment | Visible fields help, but self-asserted authority is not proof |
-| portability | Low across unrelated Business systems | Higher across implementations if identifiers and term meaning remain comparable |
-| origin unavailable | Binding normally fails closed or is deferred | Structural checks remain possible; freshness/authenticity may still fail closed |
+Binding-time artifact/result distinctions remain: malformed, unknown, forged, unauthorized issuer, identity mismatch, stale, not accepted, expired, scope expansion, scope contraction, currency/term mismatch, revalidation failure, firm-commitment invalidation, partial binding, and binding-unit rejection.
 
-## Derived hybrid option
+Post-bind distinctions add: bound but not executable, release pending, release-condition failure, post-bind invalidation, and executed. Binding-unit results add: bound, rejected, and idempotent replay/already bound. Names are provisional and describe the harness, not proposed wire codes.
 
-A reviewable experiment could carry:
+## Model comparison after the new cases
 
-1. an authoritative Business-resolvable reference and revision;
-2. a portable, integrity-bound projection of buyer, item/quantity scope, currency, accepted commercial semantics, expiry, acceptance provenance, and commitment type; and
-3. a classified Business binding result.
-
-The portable projection enables inspection and cross-system consistency; the reference enables current-revision, revocation, and Business authorization checks. If the two disagree, binding fails closed. The returned Cart/Checkout remains authoritative transaction state; the projection never becomes a direct mutation command.
+| Concern | Opaque reference | Portable artifact | Derived hybrid |
+|---|---|---|---|
+| post-bind authority | Business may know it internally; reference alone does not expose it | Rule can travel; artifact cannot enforce transaction state | Can compare declared rule with Business state, but still needs lifecycle semantics |
+| continued origin dependence | Natural to re-resolve, with availability cost | Must declare whether offline execution is authorized | Makes dependency explicit; does not remove it |
+| origin unavailable at release | Fail/defer unless authority transferred or cached resolution is explicitly valid | Structural checks continue; authority/currentness may be indeterminate | Behavior depends on declared transfer/release rule |
+| partial binding | Requires grouped Business results | Can expose group membership/results | Useful combination, but server still owns authoritative results |
+| atomicity declaration | Native resolver state can preserve dependencies | Group and conditions must be integrity-bound | Can compare portable projection with native group |
+| retry recognition | Business must deduplicate per unit/target | Replay identity can travel but cannot self-enforce | Same server-side requirement |
 
 ## Unresolved questions
 
-1. What trust mechanism proves issuer authorization for portable artifacts: Business signature, dereference-and-compare, trusted intermediary attestation, or a negotiated combination?
-2. Must supersession be checked online, or can bounded lifetime and signed no-later-than semantics be sufficient in some profiles?
-3. What is the smallest shared result taxonomy? At minimum this harness needs malformed, unknown, forged, unauthorized issuer, stale, expired, scope mismatch, and recognized-but-rejected.
-4. How are item identity and quantity sale basis compared across systems without defining a universal catalog or B2B identity model?
-5. Are commitment/invalidation semantics discoverable as a profile, carried per artifact, or both?
-6. Where should binding occur: Cart create/update, Checkout create/update, or a separately addressable pre-Checkout operation?
-7. How is idempotency scoped across artifact revision and target transaction so a retry cannot bind twice or bind a different revision?
-8. Which commercial terms need normalized machine semantics versus an integrity-bound opaque term set plus Business restatement?
+1. Which post-bind rule is appropriate for which commitment: authority transfer, continued term expiry, separate deadline, conditional release, or another declared model?
+2. Which component is authoritative for execution/release events, and what happens when that component or the quote origin is unavailable?
+3. What minimum transaction state machine represents bound-not-executable, release pending/failure, invalidated, and executed without overfitting Checkout?
+4. How are binding units declared and authorized when their membership reflects volume, bundle, threshold, freight, or contractual dependencies?
+5. Can a failed unit later succeed under the same artifact revision, or must recovery always be a new authorized transition/revision?
+6. How should a transaction expose effective bound scope versus newly bound scope on idempotent replay?
+7. What trust mechanism proves issuer authorization for portable artifacts and their post-bind/atomicity declarations?
+8. Must supersession be checked online, or can bounded lifetime and offline-verifiable commitments suffice in some profiles?
+9. Where do binding and release operations belong: Cart, Checkout, a separate pre-Checkout resource, or a transaction extension?
 
 ## Maturity assessment
 
 | Next artifact | Ready? | Basis |
 |---|---|---|
-| another #812 discussion comment | **Yes** | Seven vectors expose the authority distinction and concrete gaps without proposing schema. |
-| vendor-namespaced experiment | **Yes, narrowly** | A hybrid binding experiment can test trust, freshness, and result taxonomy while staying outside `dev.ucp.*`. |
-| UCP proposal | **Not yet** | Trust/freshness, result taxonomy, identifier comparison, and placement remain unresolved. |
-| upstream PR | **No** | There is no agreed protocol shape or maintainer direction, and this artifact intentionally avoids upstream changes. |
+| another #812 discussion comment | **Yes** | Eleven executable vectors now expose both gaps and invite review of concrete semantics. |
+| vendor-namespaced experiment | **Not yet started; design is ready to scope** | The next review should first challenge dual-clock choices and group/idempotency semantics. |
+| UCP proposal | **Not yet** | Lifecycle placement, release authority, recovery transitions, and group authorization remain unresolved. |
+| upstream PR | **No** | No protocol shape or maintainer direction is agreed. |
 
 ## Recommended next step for #812
 
-Post the matrix and ask reviewers to validate two things before any schema work: (1) whether the three commitment levels capture real implementation semantics, especially firm commitment versus revalidation; and (2) whether the minimum binding-result distinctions are sufficient. In parallel, implement a vendor-namespaced hybrid proof of concept against one Business resolver, using these exact vectors unchanged. That experiment should measure which portable fields are actually necessary rather than assuming the whole quote must travel.
+Link this revision and ask reviewers to attack the declared lifecycle and grouping boundaries: whether V8's post-bind invalidation is allowed under the stated commitment, whether V9 cleanly separates release failure from repricing, whether V10's grouping and replay identity are sufficient, and whether V11 captures the right atomic rejection behavior. Do not start a schema proposal or implementation until those semantics survive review.
 
 ## Proposed #812 update (do not post)
 
-> I turned the Shopware flows and Weston's authority observation into seven protocol-level test vectors covering revision, async/human pauses, scope mutation, expiry, recognized-but-rejected binding, and a firm Business commitment. The main result is that preservation and authority are separate: an accepted artifact may be valid but non-executable when it explicitly requires Business revalidation, while under the test harness's proposed `business_firm` semantics, a Business-issued commitment cannot be arbitrarily repriced during its validity window. That is a candidate semantic for review, not a claim about current UCP requirements.
+> Weston, I extended the artifact to cover both gaps you identified without changing V1–V7. V8 now models a successful bind followed by pre-execution state drift, with the term-expiry/transaction-lifetime rule made explicit. V9 models the alternative you named: fixed commercial terms with execution or settlement gated by a declared release condition, where condition failure is explicit and does not reprice.
 >
-> The opaque-reference model handles Business resolution, freshness, and authorization well, but needs a shared binding-result taxonomy and gives the Platform little scope/commitment visibility. A portable artifact makes those semantics inspectable, but is unsafe without content-bound issuer authorization and a supersession/freshness mechanism. A hybrid—portable semantics plus an authoritative Business reference—looks worth a vendor-namespaced experiment, though the vectors do not establish it as the only viable design.
+> For partial binding, I did not make lines universally severable. V10 groups a 40-line award into four independent all-or-nothing binding units: 38 lines are effectively bound, two fail explicitly, and replay of an already-bound unit adds no duplicate lines. V11 puts several commercially dependent lines in one atomic unit and rejects the whole group when one required line is unavailable.
 >
-> Before drafting a UCP schema, I suggest reviewing the candidate invariants and agreeing on the minimum distinctions at binding: invalid/unknown/forged/stale/expired/out-of-scope versus recognized-but-rejected, plus an explicit difference between revalidation-required terms and a firm Business commitment. If that holds up, the next step would be to run the same vectors against a small vendor-namespaced binding prototype.
+> The new invariants cover binding versus execution, explicit dual-clock/post-bind authority, no silent contraction, grouped partial success, cross-line atomicity, unit-granular idempotency, and term-preserving conditional release. The model comparison still does not force a hybrid: both carriers need added transaction-lifecycle and binding-operation semantics.
+>
+> Could you challenge the lifecycle and atomicity choices specifically—especially whether the four post-bind authority modes are distinct enough, whether a failed unit requires a new artifact revision before later success, and whether the replay identity has the right semantic inputs?
