@@ -5,167 +5,222 @@
   "description": "Schema for the review harness; not a production UCP schema.",
   "type": "object",
   "additionalProperties": false,
-  "required": ["id", "title", "timeline", "term_artifact", "binding_request", "business_state", "expected", "model_requirements", "invariants"],
+  "required": ["id","title","timeline","term_artifact","binding_request","business_state","expected","model_requirements","invariants"],
   "properties": {
-    "id": {"type": "string", "pattern": "^V(?:[1-9]|1[01])$"},
-    "title": {"type": "string", "minLength": 1},
+    "id": {"type":"string","pattern":"^V(?:[1-9]|1[0-4])$"},
+    "title": {"type":"string","minLength":1},
     "timeline": {
       "type": "array",
       "minItems": 2,
       "items": {
         "type": "object",
         "additionalProperties": false,
-        "required": ["at", "actor", "event", "revision"],
+        "required": ["at","actor","event","revision"],
         "properties": {
-          "at": {"type": "string", "format": "date-time"},
-          "actor": {"enum": ["buyer", "business", "human_approver", "platform", "execution_system", "release_authority"]},
-          "event": {"type": "string", "minLength": 1},
-          "revision": {"type": "integer", "minimum": 1}
+          "at": {"type":"string","format":"date-time"},
+          "actor": {"enum":["buyer","business","human_approver","platform","execution_system","release_authority"]},
+          "event": {"type":"string","minLength":1},
+          "revision": {"type":"integer","minimum":1}
         }
       }
     },
-    "term_artifact": {"$ref": "#/definitions/artifact"},
-    "binding_request": {"$ref": "#/definitions/binding"},
-    "business_state": {"$ref": "#/definitions/businessState"},
-    "post_bind": {"$ref": "#/definitions/postBind"},
-    "binding_units": {
-      "type": "array",
-      "minItems": 1,
-      "items": {"$ref": "#/definitions/bindingUnit"}
-    },
-    "expected": {"$ref": "#/definitions/expected"},
+    "term_artifact": {"$ref":"#/definitions/artifact"},
+    "binding_request": {"$ref":"#/definitions/binding"},
+    "business_state": {"$ref":"#/definitions/businessState"},
+    "post_bind": {"$ref":"#/definitions/postBind"},
+    "binding_units": {"type":"array","minItems":1,"items":{"$ref":"#/definitions/bindingUnit"}},
+    "expected": {"$ref":"#/definitions/expected"},
     "model_requirements": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["opaque_reference", "portable_artifact"],
-      "properties": {
-        "opaque_reference": {"$ref": "#/definitions/modelExpectation"},
-        "portable_artifact": {"$ref": "#/definitions/modelExpectation"}
-      }
+      "required": ["opaque_reference","portable_artifact"],
+      "properties": {"opaque_reference":{"$ref":"#/definitions/modelExpectation"},"portable_artifact":{"$ref":"#/definitions/modelExpectation"}}
     },
-    "invariants": {
-      "type": "array",
-      "minItems": 1,
-      "uniqueItems": true,
-      "items": {"type": "string", "pattern": "^I(?:[1-9]|1[0-9]|20)$"}
-    }
+    "invariants": {"type":"array","minItems":1,"uniqueItems":true,"items":{"type":"string","pattern":"^I(?:[1-9]|1[0-9]|2[0-3])$"}}
   },
   "definitions": {
     "party": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["id", "role"],
-      "properties": {
-        "id": {"type": "string", "minLength": 1},
-        "role": {"enum": ["buyer", "business", "marketplace", "broker"]}
-      }
+      "required": ["id","role"],
+      "properties": {"id":{"type":"string","minLength":1},"role":{"enum":["buyer","business","marketplace","broker"]}}
     },
     "line": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["item_id", "quantity", "unit_price"],
+      "required": ["item_id","quantity","unit_price"],
       "properties": {
-        "line_id": {"type": "string", "minLength": 1},
-        "item_id": {"type": "string", "minLength": 1},
-        "quantity": {"type": "integer", "minimum": 1},
-        "unit_price": {"type": "integer", "minimum": 0}
+        "line_id": {"type":"string","minLength":1},
+        "item_id": {"type":"string","minLength":1},
+        "quantity": {"type":"integer","minimum":1},
+        "unit_price": {"type":"integer","minimum":0}
       }
     },
     "artifact": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["id", "revision", "issuer", "authorized_by", "buyer_scope", "acceptance", "expires_at", "commitment", "currency", "lines", "commercial_terms"],
+      "required": ["id","revision","issuer","authorized_by","buyer_scope","acceptance","expires_at","commitment","currency","lines","commercial_terms"],
       "properties": {
-        "id": {"type": "string", "minLength": 1},
-        "revision": {"type": "integer", "minimum": 1},
-        "issuer": {"$ref": "#/definitions/party"},
-        "authorized_by": {"type": "string", "minLength": 1},
-        "buyer_scope": {"type": "string", "minLength": 1},
+        "id": {"type":"string","minLength":1},
+        "revision": {"type":"integer","minimum":1},
+        "issuer": {"$ref":"#/definitions/party"},
+        "authorized_by": {"type":"string","minLength":1},
+        "buyer_scope": {"type":"string","minLength":1},
         "acceptance": {
           "type": "object",
           "additionalProperties": false,
-          "required": ["state", "accepted_by", "accepted_at", "accepted_revision", "provenance"],
+          "required": ["state","accepted_by","accepted_at","accepted_revision","provenance"],
           "properties": {
-            "state": {"enum": ["proposed", "accepted", "awarded"]},
-            "accepted_by": {"type": ["string", "null"]},
-            "accepted_at": {"type": ["string", "null"], "format": "date-time"},
-            "accepted_revision": {"type": ["integer", "null"], "minimum": 1},
-            "provenance": {"type": "string", "minLength": 1}
+            "state": {"enum":["proposed","accepted","awarded"]},
+            "accepted_by": {"type":["string","null"]},
+            "accepted_at": {"type":["string","null"],"format":"date-time"},
+            "accepted_revision": {"type":["integer","null"],"minimum":1},
+            "provenance": {"type":"string","minLength":1}
           }
         },
-        "expires_at": {"type": "string", "format": "date-time"},
+        "expires_at": {"type":"string","format":"date-time"},
         "commitment": {
           "type": "object",
           "additionalProperties": false,
-          "required": ["type", "invalidation_conditions"],
+          "required": ["type","invalidation_conditions"],
           "properties": {
-            "type": {"enum": ["proposed", "accepted_revalidate", "business_firm"]},
-            "invalidation_conditions": {"type": "array", "uniqueItems": true, "items": {"type": "string", "minLength": 1}}
+            "type": {"enum":["proposed","accepted_revalidate","business_firm"]},
+            "invalidation_conditions": {"type":"array","uniqueItems":true,"items":{"type":"string","minLength":1}}
           }
         },
-        "currency": {"type": "string", "pattern": "^[A-Z]{3}$"},
-        "lines": {"type": "array", "minItems": 1, "items": {"$ref": "#/definitions/line"}},
-        "commercial_terms": {"type": "array", "minItems": 1, "items": {"type": "string", "minLength": 1}}
+        "currency": {"type":"string","pattern":"^[A-Z]{3}$"},
+        "lines": {"type":"array","minItems":1,"items":{"$ref":"#/definitions/line"}},
+        "commercial_terms": {"type":"array","minItems":1,"items":{"type":"string","minLength":1}},
+        "binding_authorization": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["groups","contraction_rule"],
+          "properties": {
+            "groups": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": ["id","line_ids","atomicity_mode"],
+                "properties": {
+                  "id": {"type":"string","minLength":1},
+                  "line_ids": {"type":"array","items":{"type":"string","minLength":1}},
+                  "atomicity_mode": {"enum":["all_or_nothing"]}
+                }
+              }
+            },
+            "contraction_rule": {
+              "oneOf": [
+                {"type":"null"},
+                {"type":"object","additionalProperties":false,"required":["type"],"properties":{"type":{"enum":["fixed_prices"]}}},
+                {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "required": ["type","tiers"],
+                  "properties": {
+                    "type": {"enum":["unit_count_tier"]},
+                    "tiers": {
+                      "type": "array",
+                      "minItems": 1,
+                      "items": {
+                        "type": "object",
+                        "additionalProperties": false,
+                        "required": ["minimum_units","unit_price"],
+                        "properties": {"minimum_units":{"type":"integer","minimum":1},"unit_price":{"type":"integer","minimum":0}}
+                      }
+                    }
+                  }
+                }
+              ]
+            }
+          }
+        }
       }
     },
     "binding": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["at", "target", "artifact_id", "revision", "issuer", "buyer", "acceptance_state", "accepted_revision", "currency", "lines", "commercial_terms"],
+      "required": ["at","target","artifact_id","revision","issuer","buyer","acceptance_state","accepted_revision","currency","lines","commercial_terms"],
       "properties": {
-        "at": {"type": "string", "format": "date-time"},
-        "target": {"enum": ["cart", "checkout"]},
-        "artifact_id": {"type": "string", "minLength": 1},
-        "revision": {"type": "integer", "minimum": 1},
-        "issuer": {"$ref": "#/definitions/party"},
-        "buyer": {"type": "string", "minLength": 1},
-        "acceptance_state": {"enum": ["proposed", "accepted", "awarded"]},
-        "accepted_revision": {"type": ["integer", "null"], "minimum": 1},
-        "currency": {"type": "string", "pattern": "^[A-Z]{3}$"},
-        "lines": {"type": "array", "minItems": 1, "items": {"$ref": "#/definitions/line"}},
-        "commercial_terms": {"type": "array", "minItems": 1, "items": {"type": "string", "minLength": 1}}
+        "at": {"type":"string","format":"date-time"},
+        "target": {"enum":["cart","checkout"]},
+        "artifact_id": {"type":"string","minLength":1},
+        "revision": {"type":"integer","minimum":1},
+        "issuer": {"$ref":"#/definitions/party"},
+        "buyer": {"type":"string","minLength":1},
+        "acceptance_state": {"enum":["proposed","accepted","awarded"]},
+        "accepted_revision": {"type":["integer","null"],"minimum":1},
+        "currency": {"type":"string","pattern":"^[A-Z]{3}$"},
+        "lines": {"type":"array","minItems":1,"items":{"$ref":"#/definitions/line"}},
+        "commercial_terms": {"type":"array","minItems":1,"items":{"type":"string","minLength":1}},
+        "target_transaction": {"type":"string","minLength":1}
       }
     },
     "businessState": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["artifact_known", "artifact_authentic", "issuer_authorized", "current_revision", "origin_available", "revalidation_passes", "revalidation_reason", "active_invalidation_conditions"],
+      "required": [
+        "artifact_known",
+        "artifact_authentic",
+        "issuer_authorized",
+        "current_revision",
+        "origin_available",
+        "revalidation_passes",
+        "revalidation_reason",
+        "active_invalidation_conditions"
+      ],
       "properties": {
-        "artifact_known": {"type": "boolean"},
-        "artifact_authentic": {"type": "boolean"},
-        "issuer_authorized": {"type": "boolean"},
-        "current_revision": {"type": "integer", "minimum": 1},
-        "origin_available": {"type": "boolean"},
-        "revalidation_passes": {"type": "boolean"},
-        "revalidation_reason": {"type": ["string", "null"]},
-        "active_invalidation_conditions": {"type": "array", "uniqueItems": true, "items": {"type": "string", "minLength": 1}}
+        "artifact_known": {"type":"boolean"},
+        "artifact_authentic": {"type":"boolean"},
+        "issuer_authorized": {"type":"boolean"},
+        "current_revision": {"type":"integer","minimum":1},
+        "origin_available": {"type":"boolean"},
+        "revalidation_passes": {"type":"boolean"},
+        "revalidation_reason": {"type":["string","null"]},
+        "active_invalidation_conditions": {"type":"array","uniqueItems":true,"items":{"type":"string","minLength":1}},
+        "attempt_history": {"type":"array","items":{"$ref":"#/definitions/attemptRecord"}},
+        "attempt_history_available": {"type":"boolean"},
+        "binding_authorization_verified": {"type":"boolean"},
+        "adjustment_authorization_verified": {"type":"boolean"}
       }
     },
     "postBind": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["bound_at", "transaction", "governing_semantics", "events", "execution_attempt", "expected"],
+      "required": ["bound_at","transaction","governing_semantics","events","execution_attempt","expected"],
       "properties": {
-        "bound_at": {"type": "string", "format": "date-time"},
+        "bound_at": {"type":"string","format":"date-time"},
         "transaction": {
           "type": "object",
           "additionalProperties": false,
-          "required": ["id", "valid_until"],
-          "properties": {
-            "id": {"type": "string", "minLength": 1},
-            "valid_until": {"type": "string", "format": "date-time"}
-          }
+          "required": ["id","valid_until"],
+          "properties": {"id":{"type":"string","minLength":1},"valid_until":{"type":"string","format":"date-time"}}
         },
         "governing_semantics": {
           "type": "object",
           "additionalProperties": false,
-          "required": ["mode", "post_bind_valid_until", "release_condition", "execution_invalidation_conditions"],
+          "required": ["deadline_source","post_bind_valid_until","release_condition","pending_at_deadline","execution_invalidation_conditions"],
           "properties": {
-            "mode": {"enum": ["authority_transfers_at_bind", "term_expiry_continues", "post_bind_deadline", "conditional_release"]},
-            "post_bind_valid_until": {"type": ["string", "null"], "format": "date-time"},
-            "release_condition": {"type": ["string", "null"]},
-            "execution_invalidation_conditions": {"type": "array", "uniqueItems": true, "items": {"type": "string", "minLength": 1}}
-          }
+            "deadline_source": {"enum":["term_expiry","transaction_lifetime","explicit_post_bind_deadline"]},
+            "post_bind_valid_until": {"type":["string","null"],"format":"date-time"},
+            "release_condition": {"type":["string","null"]},
+            "pending_at_deadline": {"enum":[null,"return_to_buyer","deemed_acceptance_to_business"]},
+            "execution_invalidation_conditions": {"type":"array","items":{"type":"string","minLength":1}}
+          },
+          "allOf": [
+            {
+              "if": {"properties":{"deadline_source":{"const":"explicit_post_bind_deadline"}}},
+              "then": {"properties":{"post_bind_valid_until":{"type":"string","format":"date-time"}}},
+              "else": {"properties":{"post_bind_valid_until":{"type":"null"}}}
+            },
+            {
+              "if": {"properties":{"release_condition":{"type":"null"}}},
+              "then": {"properties":{"pending_at_deadline":{"type":"null"}}},
+              "else": {
+                "properties": {"release_condition":{"type":"string","minLength":1},"pending_at_deadline":{"enum":["return_to_buyer","deemed_acceptance_to_business"]}}
+              }
+            }
+          ]
         },
         "events": {
           "type": "array",
@@ -173,33 +228,47 @@
           "items": {
             "type": "object",
             "additionalProperties": false,
-            "required": ["at", "event"],
-            "properties": {
-              "at": {"type": "string", "format": "date-time"},
-              "event": {"type": "string", "minLength": 1}
-            }
+            "required": ["at","event"],
+            "properties": {"at":{"type":"string","format":"date-time"},"event":{"type":"string","minLength":1}}
           }
         },
         "execution_attempt": {
           "type": "object",
           "additionalProperties": false,
-          "required": ["at", "release_condition_met", "active_invalidation_conditions", "terms_unchanged"],
+          "required": ["at","release_condition_met","active_invalidation_conditions","terms_unchanged","release_resolved_at"],
           "properties": {
-            "at": {"type": "string", "format": "date-time"},
-            "release_condition_met": {"type": ["boolean", "null"]},
-            "active_invalidation_conditions": {"type": "array", "uniqueItems": true, "items": {"type": "string", "minLength": 1}},
-            "terms_unchanged": {"type": "boolean"}
+            "at": {"type":"string","format":"date-time"},
+            "release_condition_met": {"type":["boolean","null"]},
+            "active_invalidation_conditions": {"type":"array","uniqueItems":true,"items":{"type":"string","minLength":1}},
+            "terms_unchanged": {"type":"boolean"},
+            "release_resolved_at": {"type":["string","null"],"format":"date-time"}
           }
         },
         "expected": {
           "type": "object",
           "additionalProperties": false,
-          "required": ["status", "reason", "executed", "terms_preserved"],
+          "required": ["status","reason","executed","terms_preserved"],
           "properties": {
-            "status": {"enum": ["bound_not_executable", "release_pending", "release_condition_failed", "post_bind_invalidated", "executed"]},
-            "reason": {"enum": ["executed", "release_condition_pending", "delivery_not_confirmed", "inventory_allocation_changed", "term_expired_after_binding", "post_bind_deadline_elapsed", "commercial_terms_reinterpreted"]},
-            "executed": {"type": "boolean"},
-            "terms_preserved": {"type": "boolean"}
+            "status": {"enum":["bound_not_executable","release_pending","release_condition_failed","post_bind_invalidated","executed","deadline_non_execution"]},
+            "reason": {
+              "enum": [
+                "executed",
+                "release_condition_pending",
+                "release_condition_failed",
+                "release_condition_satisfied",
+                "inventory_allocation_changed",
+                "commercial_terms_reinterpreted",
+                "return_to_buyer",
+                "deemed_acceptance_to_business",
+                "execution_deadline_elapsed",
+                "invalid_lifecycle_timing",
+                "invalid_release_evidence",
+                "binding_not_successful",
+                "transaction_mismatch"
+              ]
+            },
+            "executed": {"type":"boolean"},
+            "terms_preserved": {"type":"boolean"}
           }
         }
       }
@@ -207,82 +276,113 @@
     "bindingUnit": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["id", "accepted_revision", "line_ids", "atomicity_mode", "idempotency_key", "target_transaction", "prior_binding", "unavailable_line_ids", "expected"],
+      "required": ["id","accepted_revision","line_ids","atomicity_mode","target_transaction","unavailable_line_ids","expected","attempt_id"],
       "properties": {
-        "id": {"type": "string", "minLength": 1},
-        "accepted_revision": {"type": "integer", "minimum": 1},
-        "line_ids": {"type": "array", "minItems": 1, "uniqueItems": true, "items": {"type": "string", "minLength": 1}},
-        "atomicity_mode": {"enum": ["all_or_nothing"]},
-        "idempotency_key": {"type": "string", "minLength": 1},
-        "target_transaction": {"type": "string", "minLength": 1},
-        "prior_binding": {
-          "type": ["object", "null"],
-          "additionalProperties": false,
-          "required": ["artifact_id", "revision", "binding_unit_id", "line_ids", "idempotency_key", "target_transaction"],
-          "properties": {
-            "artifact_id": {"type": "string", "minLength": 1},
-            "revision": {"type": "integer", "minimum": 1},
-            "binding_unit_id": {"type": "string", "minLength": 1},
-            "line_ids": {"type": "array", "minItems": 1, "uniqueItems": true, "items": {"type": "string", "minLength": 1}},
-            "idempotency_key": {"type": "string", "minLength": 1},
-            "target_transaction": {"type": "string", "minLength": 1}
-          }
-        },
-        "prior_failure": {
-          "type": ["object", "null"],
-          "additionalProperties": false,
-          "required": ["artifact_id", "revision", "binding_unit_id", "line_ids", "idempotency_key", "target_transaction", "reason"],
-          "properties": {
-            "artifact_id": {"type": "string", "minLength": 1},
-            "revision": {"type": "integer", "minimum": 1},
-            "binding_unit_id": {"type": "string", "minLength": 1},
-            "line_ids": {"type": "array", "minItems": 1, "uniqueItems": true, "items": {"type": "string", "minLength": 1}},
-            "idempotency_key": {"type": "string", "minLength": 1},
-            "target_transaction": {"type": "string", "minLength": 1},
-            "reason": {"enum": ["line_unavailable", "stale_revision", "atomicity_violation"]}
-          }
-        },
-        "unavailable_line_ids": {"type": "array", "uniqueItems": true, "items": {"type": "string", "minLength": 1}},
-        "expected": {"$ref": "#/definitions/unitResult"}
+        "id": {"type":"string","minLength":1},
+        "accepted_revision": {"type":"integer","minimum":1},
+        "line_ids": {"type":"array","minItems":1,"uniqueItems":true,"items":{"type":"string","minLength":1}},
+        "atomicity_mode": {"enum":["all_or_nothing"]},
+        "target_transaction": {"type":"string","minLength":1},
+        "unavailable_line_ids": {"type":"array","uniqueItems":true,"items":{"type":"string","minLength":1}},
+        "expected": {"$ref":"#/definitions/unitResult"},
+        "attempt_id": {"type":"string","minLength":1}
       }
     },
     "unitResult": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["binding_unit_id", "result", "reason", "effective_bound_line_ids", "newly_bound_line_ids"],
+      "required": ["binding_unit_id","result","reason","effective_bound_line_ids","newly_bound_line_ids","retry_class"],
       "properties": {
-        "binding_unit_id": {"type": "string", "minLength": 1},
-        "result": {"enum": ["bound", "binding_unit_rejected", "idempotent_replay"]},
-        "reason": {"enum": ["bound", "line_unavailable", "already_bound", "idempotency_conflict", "stale_revision", "atomicity_violation"]},
-        "effective_bound_line_ids": {"type": "array", "uniqueItems": true, "items": {"type": "string", "minLength": 1}},
-        "newly_bound_line_ids": {"type": "array", "uniqueItems": true, "items": {"type": "string", "minLength": 1}}
+        "binding_unit_id": {"type":"string","minLength":1},
+        "result": {"enum":["bound","binding_unit_rejected","idempotent_replay"]},
+        "reason": {"enum":["bound","line_unavailable","already_bound","idempotency_conflict","stale_revision","atomicity_violation"]},
+        "effective_bound_line_ids": {"type":"array","uniqueItems":true,"items":{"type":"string","minLength":1}},
+        "newly_bound_line_ids": {"type":"array","uniqueItems":true,"items":{"type":"string","minLength":1}},
+        "retry_class": {"enum":["new_attempt_same_revision","new_authorized_transition","already_bound"]}
       }
     },
     "expected": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["recognized", "artifact_valid", "bindable", "outcome", "reason"],
+      "required": ["recognized","artifact_valid","bindable","outcome","reason"],
       "properties": {
-        "recognized": {"type": "boolean"},
-        "artifact_valid": {"type": "boolean"},
-        "bindable": {"type": "boolean"},
-        "outcome": {"enum": ["bound", "invalid_artifact", "recognized_rejected", "partially_bound"]},
-        "reason": {"enum": ["bound", "malformed_artifact", "unknown_artifact", "forged_artifact", "unauthorized_issuer", "identity_mismatch", "stale_revision", "not_accepted", "expired", "scope_expansion", "scope_contraction", "currency_mismatch", "commercial_terms_mismatch", "business_revalidation_failed", "firm_commitment_invalidated", "partial_binding", "binding_unit_rejected"]},
-        "unit_results": {"type": "array", "minItems": 1, "items": {"$ref": "#/definitions/unitResult"}},
-        "effective_bound_line_count": {"type": "integer", "minimum": 0},
-        "newly_bound_line_count": {"type": "integer", "minimum": 0},
-        "failed_line_count": {"type": "integer", "minimum": 0}
+        "recognized": {"type":"boolean"},
+        "artifact_valid": {"type":"boolean"},
+        "bindable": {"type":"boolean"},
+        "outcome": {"enum":["bound","invalid_artifact","recognized_rejected","partially_bound"]},
+        "reason": {
+          "enum": [
+            "bound",
+            "malformed_artifact",
+            "unknown_artifact",
+            "forged_artifact",
+            "unauthorized_issuer",
+            "identity_mismatch",
+            "stale_revision",
+            "not_accepted",
+            "expired",
+            "scope_expansion",
+            "scope_contraction",
+            "currency_mismatch",
+            "commercial_terms_mismatch",
+            "business_revalidation_failed",
+            "firm_commitment_invalidated",
+            "partial_binding",
+            "binding_unit_rejected",
+            "unauthorized_adjustment",
+            "unauthorized_grouping",
+            "unauthorized_scope",
+            "atomicity_violation",
+            "invalid_artifact_semantics",
+            "attempt_history_unavailable",
+            "idempotency_conflict",
+            "commercial_basis_unsatisfied",
+            "prior_bound_adjustment_requires_transition"
+          ]
+        },
+        "unit_results": {"type":"array","minItems":1,"items":{"$ref":"#/definitions/unitResult"}},
+        "effective_bound_line_count": {"type":"integer","minimum":0},
+        "newly_bound_line_count": {"type":"integer","minimum":0},
+        "failed_line_count": {"type":"integer","minimum":0},
+        "effective_unit_prices": {"type":"object","additionalProperties":{"type":"integer","minimum":0}}
       }
     },
     "modelExpectation": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["requires", "expected_verdict", "rationale"],
+      "required": ["requires","expected_verdict","rationale"],
       "properties": {
-        "requires": {"type": "array", "minItems": 1, "uniqueItems": true, "items": {"type": "string", "minLength": 1}},
-        "expected_verdict": {"enum": ["PASS", "FAIL", "AMBIGUOUS"]},
-        "rationale": {"type": "string", "minLength": 1}
+        "requires": {"type":"array","minItems":1,"uniqueItems":true,"items":{"type":"string","minLength":1}},
+        "expected_verdict": {"enum":["PASS","FAIL","AMBIGUOUS"]},
+        "rationale": {"type":"string","minLength":1}
+      }
+    },
+    "attemptRecord": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["attempt_id","artifact_id","revision","binding_unit_id","line_ids","target_transaction","reason"],
+      "properties": {
+        "attempt_id": {"type":"string","minLength":1},
+        "artifact_id": {"type":"string","minLength":1},
+        "revision": {"type":"integer","minimum":1},
+        "binding_unit_id": {"type":"string","minLength":1},
+        "line_ids": {"type":"array","items":{"type":"string","minLength":1}},
+        "target_transaction": {"type":"string","minLength":1},
+        "reason": {"enum":["bound","line_unavailable","stale_revision","atomicity_violation","unauthorized_grouping","unauthorized_scope","invalid_artifact_semantics"]}
       }
     }
-  }
+  },
+  "allOf": [
+    {
+      "if": {"required":["binding_units"]},
+      "then": {
+        "properties": {
+          "term_artifact": {"required":["binding_authorization"]},
+          "binding_request": {"required":["target_transaction"]},
+          "business_state": {"required":["attempt_history","attempt_history_available","binding_authorization_verified","adjustment_authorization_verified"]}
+        }
+      }
+    },
+    {"if":{"required":["post_bind"]},"then":{"properties":{"binding_request":{"required":["target_transaction"]}}}}
+  ]
 }

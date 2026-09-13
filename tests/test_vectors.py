@@ -12,6 +12,7 @@ from datetime import datetime
 from pathlib import Path
 
 from jsonschema import Draft7Validator, FormatChecker
+from semantics import lifecycle, units as evaluate_binding_units
 
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -57,126 +58,6 @@ def result(recognized, artifact_valid, bindable, outcome, reason):
 
 def line_identity(line):
     return line.get("line_id", line["item_id"])
-
-
-def evaluate_binding_units(vector):
-    artifact = vector["term_artifact"]
-    request = vector["binding_request"]
-    artifact_lines = {line_identity(line) for line in artifact["lines"]}
-    requested_lines = {line_identity(line) for line in request["lines"]}
-    unit_lines = [line_id for unit in vector["binding_units"] for line_id in unit["line_ids"]]
-
-    if len(unit_lines) != len(set(unit_lines)):
-        return result(True, False, False, "invalid_artifact", "scope_expansion")
-    grouped_lines = set(unit_lines)
-    if grouped_lines - requested_lines or requested_lines - artifact_lines:
-        return result(True, False, False, "invalid_artifact", "scope_expansion")
-    if artifact_lines - grouped_lines or requested_lines - grouped_lines:
-        return result(True, False, False, "invalid_artifact", "scope_contraction")
-
-    unit_results = []
-    for unit in vector["binding_units"]:
-        if unit["accepted_revision"] != artifact["revision"]:
-            unit_result = {
-                "binding_unit_id": unit["id"], "result": "binding_unit_rejected", "reason": "stale_revision",
-                "effective_bound_line_ids": [], "newly_bound_line_ids": [],
-            }
-        elif set(unit["line_ids"]) - artifact_lines:
-            unit_result = {
-                "binding_unit_id": unit["id"], "result": "binding_unit_rejected", "reason": "atomicity_violation",
-                "effective_bound_line_ids": [], "newly_bound_line_ids": [],
-            }
-        elif unit["prior_binding"] is not None:
-            prior = unit["prior_binding"]
-            replay_identity = (
-                prior["artifact_id"] == artifact["id"]
-                and prior["revision"] == unit["accepted_revision"]
-                and prior["binding_unit_id"] == unit["id"]
-                and prior["line_ids"] == unit["line_ids"]
-                and prior["idempotency_key"] == unit["idempotency_key"]
-                and prior["target_transaction"] == unit["target_transaction"]
-            )
-            unit_result = {
-                "binding_unit_id": unit["id"],
-                "result": "idempotent_replay" if replay_identity else "binding_unit_rejected",
-                "reason": "already_bound" if replay_identity else "idempotency_conflict",
-                "effective_bound_line_ids": unit["line_ids"] if replay_identity else [],
-                "newly_bound_line_ids": [],
-            }
-        elif unit.get("prior_failure") is not None:
-            prior = unit["prior_failure"]
-            same_failed_attempt = (
-                prior["artifact_id"] == artifact["id"]
-                and prior["revision"] == unit["accepted_revision"]
-                and prior["binding_unit_id"] == unit["id"]
-                and prior["line_ids"] == unit["line_ids"]
-                and prior["idempotency_key"] == unit["idempotency_key"]
-                and prior["target_transaction"] == unit["target_transaction"]
-            )
-            unit_result = {
-                "binding_unit_id": unit["id"],
-                "result": "binding_unit_rejected",
-                "reason": prior["reason"] if same_failed_attempt else "idempotency_conflict",
-                "effective_bound_line_ids": [],
-                "newly_bound_line_ids": [],
-            }
-        elif unit["unavailable_line_ids"]:
-            # Current harness mode is all_or_nothing: one failed dependency rejects the unit.
-            unit_result = {
-                "binding_unit_id": unit["id"], "result": "binding_unit_rejected", "reason": "line_unavailable",
-                "effective_bound_line_ids": [], "newly_bound_line_ids": [],
-            }
-        else:
-            unit_result = {
-                "binding_unit_id": unit["id"], "result": "bound", "reason": "bound",
-                "effective_bound_line_ids": unit["line_ids"], "newly_bound_line_ids": unit["line_ids"],
-            }
-        unit_results.append(unit_result)
-
-    effective = {line_id for unit in unit_results for line_id in unit["effective_bound_line_ids"]}
-    newly = {line_id for unit in unit_results for line_id in unit["newly_bound_line_ids"]}
-    failed = requested_lines - effective
-    successes = [unit for unit in unit_results if unit["result"] in ("bound", "idempotent_replay")]
-    failures = [unit for unit in unit_results if unit["result"] == "binding_unit_rejected"]
-    if successes and failures:
-        outcome, reason, bindable = "partially_bound", "partial_binding", True
-    elif failures:
-        outcome, reason, bindable = "recognized_rejected", "binding_unit_rejected", False
-    else:
-        outcome, reason, bindable = "bound", "bound", True
-    answer = result(True, True, bindable, outcome, reason)
-    answer.update({
-        "unit_results": unit_results,
-        "effective_bound_line_count": len(effective),
-        "newly_bound_line_count": len(newly),
-        "failed_line_count": len(failed),
-    })
-    return answer
-
-
-def evaluate_post_bind(vector):
-    post_bind = vector["post_bind"]
-    semantics = post_bind["governing_semantics"]
-    attempt = post_bind["execution_attempt"]
-    active = set(attempt["active_invalidation_conditions"])
-    allowed = set(semantics["execution_invalidation_conditions"])
-
-    if not attempt["terms_unchanged"]:
-        return {"status": "post_bind_invalidated", "reason": "commercial_terms_reinterpreted", "executed": False, "terms_preserved": False}
-    if semantics["mode"] == "conditional_release":
-        if attempt["release_condition_met"] is None:
-            return {"status": "release_pending", "reason": "release_condition_pending", "executed": False, "terms_preserved": True}
-        if not attempt["release_condition_met"]:
-            return {"status": "release_condition_failed", "reason": "delivery_not_confirmed", "executed": False, "terms_preserved": True}
-    if active.intersection(allowed):
-        reason = sorted(active.intersection(allowed))[0]
-        return {"status": "post_bind_invalidated", "reason": reason, "executed": False, "terms_preserved": True}
-    if semantics["mode"] == "term_expiry_continues" and instant(attempt["at"]) >= instant(vector["term_artifact"]["expires_at"]):
-        return {"status": "post_bind_invalidated", "reason": "term_expired_after_binding", "executed": False, "terms_preserved": True}
-    deadline = semantics["post_bind_valid_until"]
-    if semantics["mode"] == "post_bind_deadline" and deadline and instant(attempt["at"]) >= instant(deadline):
-        return {"status": "post_bind_invalidated", "reason": "post_bind_deadline_elapsed", "executed": False, "terms_preserved": True}
-    return {"status": "executed", "reason": "executed", "executed": True, "terms_preserved": True}
 
 
 def evaluate(vector):
@@ -228,12 +109,18 @@ def evaluate(vector):
         if allowed.intersection(active):
             return result(True, True, False, "recognized_rejected", "firm_commitment_invalidated")
         # Ordinary state drift is deliberately ignored for a firm commitment.
+        if "binding_units" in vector:
+            return evaluate_binding_units(vector)
         return result(True, True, True, "bound", "bound")
     if commitment["type"] == "proposed":
         return result(True, False, False, "invalid_artifact", "not_accepted")
     if "binding_units" in vector:
         return evaluate_binding_units(vector)
     return result(True, True, True, "bound", "bound")
+
+
+def evaluate_post_bind(vector):
+    return lifecycle(vector, evaluate(vector))
 
 
 def score_model(vector, model, capabilities):
@@ -274,7 +161,7 @@ class TestVectors(unittest.TestCase):
                     self.assertEqual(expected, score_model(vector, model, self.capabilities))
 
     def test_vector_set_and_model_coverage_are_complete(self):
-        self.assertEqual([f"V{number}" for number in range(1, 12)], [vector["id"] for vector in self.vectors])
+        self.assertEqual([f"V{number}" for number in range(1, 15)], [vector["id"] for vector in self.vectors])
         for vector in self.vectors:
             self.assertEqual(set(MODELS), set(vector["model_requirements"]))
 
@@ -313,7 +200,7 @@ class TestVectors(unittest.TestCase):
 
     def test_conditional_release_preserves_terms_without_repricing(self):
         vector = next(item for item in self.vectors if item["id"] == "V9")
-        self.assertEqual("conditional_release", vector["post_bind"]["governing_semantics"]["mode"])
+        self.assertEqual("delivery_confirmed", vector["post_bind"]["governing_semantics"]["release_condition"])
         self.assertEqual("release_condition_failed", vector["post_bind"]["expected"]["status"])
         self.assertTrue(vector["post_bind"]["expected"]["terms_preserved"])
         self.assertFalse(vector["post_bind"]["expected"]["executed"])
@@ -321,6 +208,7 @@ class TestVectors(unittest.TestCase):
     def test_conditional_release_reports_pending_before_failure(self):
         vector = copy.deepcopy(next(item for item in self.vectors if item["id"] == "V9"))
         vector["post_bind"]["execution_attempt"]["release_condition_met"] = None
+        vector["post_bind"]["execution_attempt"]["release_resolved_at"] = None
         pending = evaluate_post_bind(vector)
         self.assertEqual("release_pending", pending["status"])
         self.assertFalse(pending["executed"])
@@ -332,7 +220,7 @@ class TestVectors(unittest.TestCase):
         self.assertNotEqual(v8["term_artifact"]["expires_at"], v8["post_bind"]["transaction"]["valid_until"])
         self.assertNotEqual(v8["term_artifact"]["expires_at"], v8["post_bind"]["governing_semantics"]["post_bind_valid_until"])
         self.assertGreater(instant(v9["post_bind"]["execution_attempt"]["at"]), instant(v9["term_artifact"]["expires_at"]))
-        self.assertEqual("conditional_release", v9["post_bind"]["governing_semantics"]["mode"])
+        self.assertEqual("transaction_lifetime", v9["post_bind"]["governing_semantics"]["deadline_source"])
 
     def test_partial_success_is_explicit_and_does_not_drop_scope(self):
         vector = next(item for item in self.vectors if item["id"] == "V10")
@@ -356,7 +244,7 @@ class TestVectors(unittest.TestCase):
         self.assertEqual(10, len(replay["effective_bound_line_ids"]))
         self.assertEqual([], replay["newly_bound_line_ids"])
 
-    def test_retry_cannot_turn_prior_failure_into_success_without_transition(self):
+    def test_same_attempt_failure_remains_failed_after_restock(self):
         vector = copy.deepcopy(next(item for item in self.vectors if item["id"] == "V10"))
         failed = vector["binding_units"][3]
         failed["unavailable_line_ids"] = []
@@ -367,7 +255,7 @@ class TestVectors(unittest.TestCase):
     def test_retry_cannot_silently_move_lines_between_groups(self):
         vector = copy.deepcopy(next(item for item in self.vectors if item["id"] == "V10"))
         replay = vector["binding_units"][0]
-        replay["prior_binding"]["line_ids"] = replay["prior_binding"]["line_ids"][:-1]
+        vector["business_state"]["attempt_history"][0]["line_ids"] = replay["line_ids"][:-1]
         result_for_retry = evaluate(vector)["unit_results"][0]
         self.assertEqual("binding_unit_rejected", result_for_retry["result"])
         self.assertEqual("idempotency_conflict", result_for_retry["reason"])
@@ -415,23 +303,15 @@ class TestVectors(unittest.TestCase):
                     self.assertEqual(declared, actual)
 
     def test_documented_matrix_matches_actual_model_scorer(self):
-        rows = {}
-        for line in (ROOT / "analysis.md").read_text(encoding="utf-8").splitlines():
-            if line.startswith("| V") and not line.startswith("| Vector"):
-                columns = [column.strip() for column in line.strip("|").split("|")]
-                vector_id = columns[0].split()[0]
-                rows[vector_id] = (columns[1], columns[2])
-        self.assertEqual({vector["id"] for vector in self.vectors}, set(rows))
-        for vector in self.vectors:
-            actual = tuple(score_model(vector, model, self.capabilities) for model in MODELS)
-            self.assertEqual(actual, rows[vector["id"]])
+        analysis = (ROOT / "analysis.md").read_text(encoding="utf-8")
+        self.assertIn(matrix_text(), analysis)
 
 
-def print_matrix():
+def matrix_text():
     vectors = load_vectors()
     capabilities = load_json(CAPABILITIES_PATH)
-    print("| Vector | Opaque reference | Portable artifact | Semantic outcome |")
-    print("|---|---|---|---|")
+    rows = ["| Vector | Opaque reference | Portable artifact | Semantic outcome |"]
+    rows.append("|---|---|---|---|")
     for vector in vectors:
         opaque = score_model(vector, "opaque_reference", capabilities)
         portable = score_model(vector, "portable_artifact", capabilities)
@@ -445,7 +325,12 @@ def print_matrix():
                 f" ({expected['effective_bound_line_count']} effective, "
                 f"{expected['failed_line_count']} failed)"
             )
-        print(f"| {vector['id']} | {opaque} | {portable} | {semantic_outcome} |")
+        rows.append(f"| {vector['id']} | {opaque} | {portable} | {semantic_outcome} |")
+    return "\n".join(rows)
+
+
+def print_matrix():
+    print(matrix_text())
 
 
 if __name__ == "__main__":

@@ -7,7 +7,7 @@ The statements below are **candidate invariants derived from current implementat
 - **Term artifact**: durable output of a quote, RFQ, negotiation, award, or other term-formation mechanism.
 - **Binding**: the Business evaluates that artifact and returns authoritative Cart/Checkout state or a classified rejection.
 - **Bound transaction**: authoritative Cart/Checkout state that records a successful binding. It is not necessarily executed, completed, settled, or released.
-- **Binding unit / atomicity group**: one or more accepted lines whose commercial dependencies are evaluated together. Partial success is permitted across independent units, not by silently splitting a unit.
+- **Binding unit / atomicity group**: one or more accepted lines that bind atomically. Fulfillment-separable units may share commercial dependencies governed by an authorized contraction rule; no unit can be silently split.
 - **Execution/release boundary**: the declared event at which the transaction completes, value moves, settlement occurs, or a conditional obligation is released.
 - **Recognized**: the Business can resolve or authenticate the artifact. Recognition does not imply that it is valid, executable, or authoritative.
 - **Transaction authority**: the Business remains authoritative for creation and mutation of its UCP Cart/Checkout. A term artifact only carries its declared commercial authority within its accepted scope.
@@ -50,15 +50,18 @@ Binding success answers whether authoritative transaction state was created. It 
 | I11 | Under this harness's modeled `business_firm` semantics, a Business MUST NOT arbitrarily invalidate its commitment during the validity window. | Rejection is allowed only for an explicitly declared invalidation condition. This is a candidate semantic, not an existing UCP rule. |
 | I12 | Binding MUST be deterministic for a fixed artifact revision, request, Business state, and evaluation time. | Replays under identical inputs yield the same classification and do not select another revision. |
 | I13 | Binding and execution MUST be modeled as distinct lifecycle points when a holding period exists. | A bound transaction may be pending, executed, released, or explicitly non-executable. |
-| I14 | Post-bind semantics MUST state whether commercial authority survives, transfers into transaction state, or remains conditional until execution. | State drift cannot silently choose the authority model. |
-| I15 | The relationship between term expiry and transaction lifetime MUST be explicit. | The rule may transfer authority at bind, continue term expiry, establish a separate deadline, or use conditional release; ambiguity is invalid. |
+| I14 | Execution deadline and optional release condition MUST be independent, explicitly authorized policies. | Every release path evaluates the selected clock; condition presence cannot bypass it. |
+| I15 | Every modeled execution path MUST select term expiry, transaction lifetime, or an explicit post-bind deadline. | The selected timestamp is enforced, including `transaction.valid_until` when selected. |
 | I16 | Scope contraction MUST NOT be silent. | Omitted accepted scope is rejected or reported as an explicit failed binding unit. |
 | I17 | Partial success MUST identify independent binding units and their results. | Artifact-wide success cannot hide failed units; artifact-wide failure need not discard successful independent units. |
-| I18 | Cross-line commercial dependencies MUST have declared atomicity semantics. | A volume, bundle, minimum, freight, or threshold group binds as declared or rejects explicitly. |
-| I19 | Retry MUST be idempotent at binding granularity. | Replay identity covers artifact, revision, binding unit, its lines, and target transaction; successful units are not duplicated, group membership cannot move, and a prior failure cannot become success without a new authorized transition. |
-| I20 | Conditional release MUST preserve agreed commercial terms. | Intermediate drift or a failed release condition cannot silently reprice; non-release is explicit. |
+| I18 | Cross-line dependencies MUST have declared atomicity and, where units are separable, authorized contraction semantics. | An atomic unit binds whole or rejects; cross-unit commercial conditions follow I21. |
+| I19 | Attempt identity MUST be separate from accepted artifact revision. | Same-attempt replay preserves the recorded result; successful scope cannot bind twice, even under a fresh attempt. |
+| I20 | Conditional release MUST preserve agreed commercial terms. | Intermediate drift and release disposition cannot silently reprice. |
+| I21 | Cross-unit contraction MUST use a deterministic rule covered by accepted Business authorization before surviving terms change. | Fixed prices, accepted tiers, or a declared minimum are permissible; missing or unverified adjustment authority fails closed. |
+| I22 | Pending release at the governing deadline MUST have an explicit authorized disposition. | Buyer return/non-execution and deemed acceptance toward the Business are separate economic choices; neither is a default. |
+| I23 | Retry eligibility MUST follow the failure class and preserve authorized unit composition. | A fresh attempt can recover transient availability under current unexpired authorization; structural failures require a new authorized transition. |
 
-I13–I20 are candidate semantics prompted by Weston's lifecycle and partial-binding review. They do not revise I1–I12 or claim current UCP requirements.
+I13–I23 are candidate semantics prompted by Weston's lifecycle and partial-binding review. They do not revise I1–I12 or claim current UCP requirements.
 
 ## Candidate property audit
 
@@ -111,22 +114,64 @@ These labels belong to the harness. A future protocol could encode the distincti
 
 Only the Business creates or mutates the authoritative Cart/Checkout. Successful binding means the Business returns transaction state that reflects no more than the artifact's authorized scope. It does not allow the artifact holder to write prices, totals, fulfillment, or other state directly.
 
-## Dual clocks and post-bind authority
+## Execution deadline and optional release
 
-Term expiry and transaction lifetime are different clocks. The harness does not select a universal relationship. A binding profile must explicitly choose semantics such as:
+A verified accepted policy selects exactly one execution bound: `term_expiry`,
+`transaction_lifetime`, or `explicit_post_bind_deadline`. The other timestamps
+do not silently acquire veto authority. Selecting transaction lifetime models the
+explicit transfer of commercial authority at bind; selecting term expiry retains
+the original limit. All modeled paths are bounded.
 
-- authority transfers into the bound transaction at `bound_at`;
-- original term expiry continues to constrain execution;
-- a separate post-bind deadline controls execution; or
-- commercial terms lock while execution/value movement waits on a release condition.
+Independently, `release_condition` is null or an authorized condition.
+A condition requires `pending_at_deadline`: `return_to_buyer` means explicit
+non-execution and return/release of held value toward the buyer;
+`deemed_acceptance_to_business` means release toward the Business.
+These are modeled economic instructions, not actual payment movements.
+Additional dispositions need defined behavior before the harness accepts them.
 
-The unsafe case is not any one choice; it is leaving the choice implicit. Any execution invalidation allowed after binding must be declared, must preserve the historical bound terms, and must return an explicit non-execution result rather than a repriced transaction.
+The deadline is exclusive. A resolution exactly at it is late and the declared
+pending disposition applies. An authenticated resolution before it remains
+effective when observed later. `release_resolved_at` records that event time;
+future or pre-bind evidence rejects. Without a condition, execution at or after
+the deadline rejects. With a pending condition before the deadline it remains
+pending; at or after the deadline it cannot remain pending.
 
-## Binding units and partial success
+Declared execution invalidations and term preservation are checked independently.
+An ordinary drift event cannot invalidate a firm commitment unless authorized.
+The harness assumes release evidence and the bound policy are authenticated
+Business/transaction facts; it does not implement their trust transport.
 
-A binding unit is a harness abstraction, not necessarily one line. Its membership is chosen by the commercial semantics: a single independent line may be one unit, while a volume tier, minimum order, bundle, shared freight basis, or threshold discount may require several lines in one unit. The initial vectors use `all_or_nothing` within a unit. They do not prescribe one grouping strategy across implementations.
+## Binding units, commercial coupling, and attempts
 
-Each unit records a group id, accepted revision, included line ids, atomicity mode, result, target transaction, and replay identity. Partial success is valid only across independent units. A failed unit remains visible; its lines are not silently dropped. Replay identity is logically scoped to artifact identity + revision + binding unit membership + target transaction, without prescribing a serialized key format. Replaying a prior failure reproduces that failure; success requires a new authorized state transition rather than reuse of the same attempt identity.
+Binding units remain the general abstraction; a one-line unit is a special case.
+The accepted artifact's `binding_authorization.groups` fixes membership and
+atomicity. Requests cannot split groups or move lines, even using new attempt ids.
+The harness implements all-or-nothing within a unit and partial success across
+units. Fulfillment independence does not imply commercial independence.
+
+An accepted `contraction_rule` makes the commercial relationship explicit:
+`fixed_prices` preserves prices; the small `unit_count_tier` example chooses
+the highest accepted minimum-unit threshold satisfied by effective bound units.
+It emits the resulting prices explicitly. No matching threshold rejects the
+commercial basis. A missing rule or failed adjustment verification rejects
+contracted scope. This table is an example fixture, not a general pricing language.
+A later adjustment that would reprice already-bound scope requires another
+authorized transition; the harness does not implement retroactive repricing.
+
+The Business maintains attempt history keyed by `attempt_id`, separate from
+artifact identity/revision. Each record binds unit membership and target.
+Replaying an attempt preserves its recorded success/failure; a new attempt may
+recover `line_unavailable` under the same current, unexpired revision.
+Structural errors (stale revision, atomicity/grouping, unauthorized scope, invalid
+semantics) require a new authorized transition. Already-bound units return no new
+scope even on a fresh attempt. Missing authoritative history fails closed.
+
+History is supplied as a trusted Business-store snapshot in this harness. Revision
+content is immutable and verification booleans attest the complete accepted
+group/rule projection, not merely a party name. A changed rule requires fresh
+authorization; tests that vary an accepted rule model different authorized inputs.
+Checking those attestations cryptographically, storing attempt results atomically,
+and coordinating simultaneous requests remain implementation work.
 
 ## Evaluation order
 
@@ -139,7 +184,7 @@ Each unit records a group id, accepted revision, included line ids, atomicity mo
    - `business_firm`: honor unless a declared invalidation condition is present.
 6. If binding units are present, evaluate each declared atomic group and return every unit result; do not infer per-line severability.
 7. Return authoritative Cart/Checkout state or a classified non-binding/partial result, correlated to artifact id and revision.
-8. During any holding period, apply the declared authority and dual-clock rule at the execution/release boundary.
+8. During any holding period, apply the selected execution deadline and independent release policy at the execution/release boundary.
 9. Execute/release without changing agreed terms, or return an explicit pending, failed-release, or post-bind-invalidated result.
 
 This order ensures a recognized Business rejection is not misreported as forgery or expiry, a firm commitment is not silently downgraded to advisory terms, and a successful bind is not mistaken for final execution.

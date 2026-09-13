@@ -1,139 +1,165 @@
 # Results and review recommendation
 
-## Result summary
+This independent analysis harness now has fourteen executable vectors. It covers
+accepted authorization → binding → execution/release, partial binding, authorized
+commercial adjustment, and attempt-specific retries. All names and invariants
+remain candidates; this is not an upstream UCP proposal.
 
-The eleven vectors now cover two boundaries:
+## External review and derived changes
 
-1. accepted terms → authoritative Cart/Checkout binding (V1–V7); and
-2. bound transaction → execution/release, including grouped partial binding (V8–V11).
+[Weston's second review](https://github.com/Universal-Commerce-Protocol/ucp/discussions/812#discussioncomment-18423514)
+independently validates binding units as the general abstraction, including the
+one-line special case. He identifies three defects: deadline and release were
+exclusive alternatives; partial binding ignored cross-unit commercial coupling;
+and retries conflated attempt identity with commercial revision.
 
-The original conclusion remains: preservation, authority provenance, commitment semantics, and revalidation are independent. The extension adds two more independent concerns: post-bind lifecycle semantics and binding-unit atomicity/idempotency. “Bound” is not synonymous with “executed,” and “partial” is meaningful only when the accepted commercial scope declares independent units.
+Juan/Shopware supplies independent implementation evidence. Weston supplies
+technical review and binding-unit validation. Arjun Garg supplies the generalized
+model, binding-unit and authorized-adjustment synthesis, invariants, harness,
+vectors, and analysis.
 
-## What Weston's review validated
+## Exact vector changes
 
-Weston's [latest #812 review](https://github.com/Universal-Commerce-Protocol/ucp/discussions/812#discussioncomment-18414304) confirms that I7–I11 match the authority problem and that separating `issuer` from `authorized_by` makes the no-authority-escalation check mechanically verifiable. This revision preserves those invariants and V1–V7 byte-for-byte.
+- V1–V7 remain byte-for-byte unchanged, with SHA-256 guards.
+- V8 migrates to an explicit post-bind deadline plus no release condition; its
+  original inventory invalidation outcome remains.
+- V9 migrates to transaction lifetime plus delivery confirmation and an explicit
+  buyer-return disposition. Explicit delivery failure remains non-execution.
+- V10 retains 38/40 effective bound lines and four units. Accepted membership,
+  fixed-price contraction authorization, and authoritative attempt history replace
+  the revision-coupled prior-binding/prior-failure fields.
+- V11 retains the four-line atomic rejection. It uses the same authorized-group
+  and attempt-history representation; one unavailable line still rejects all four.
+- V12 adds four independently fulfillable units with an accepted whole-award tier.
+  Three survive, one fails; the accepted table changes survivor unit prices from
+  1000 to 1200. Missing/unverified rules and ad-hoc prices reject in controls.
+- V13 adds pending delivery at transaction expiry with explicit non-execution and
+  return toward the buyer. The alternative deemed-acceptance disposition is tested.
+- V14 adds fresh U4 attempt B after restock under revision 4; all 40 lines become
+  effective, 30 new, with previously successful U1 replayed without duplication.
 
-The review identified two gaps in the single-evaluation assumption behind I12:
-
-- state can drift after successful binding but before execution, while term expiry and transaction lifetime may be different clocks; and
-- artifact-wide results cannot safely represent partial success, but naïve per-line binding breaks cross-line commercial dependencies.
-
-## What V8–V11 add
-
-- **V8 post-bind drift:** a valid artifact binds, then a declared execution condition changes. The result is `post_bind_invalidated`, not silent repricing and not retroactive artifact invalidity.
-- **V9 conditional release:** commercial terms lock at binding while settlement waits for delivery confirmation. Drift does not reprice; a failed condition produces `release_condition_failed`.
-- **V10 independent units:** a 40-line award has four independent binding units. Three units covering 38 lines are effectively bound, including one idempotent replay; the two-line failed unit is explicit and remains failed on replay without a new transition. No line disappears silently.
-- **V11 atomic group:** four lines share bundle/volume/freight semantics. One unavailable required line rejects the whole unit, proving that per-line binding is insufficient.
-
-## Executed model matrix
-
-`PASS` means the bare model's declared mechanisms are sufficient for the property exercised. `AMBIGUOUS` means additional semantics are required. `FAIL` means a declared bare-model capability contradicts a required property. The scorer computes this table from `models/model-capabilities.json` and each vector.
+## Executable matrix
 
 | Vector | Opaque reference | Portable artifact | Semantic outcome |
 |---|---|---|---|
-| V1 normal accepted RFQ | PASS | AMBIGUOUS | bound |
-| V2 async counter / stale revision | PASS | AMBIGUOUS | invalid: stale revision |
-| V3 human approval | PASS | PASS | bound |
-| V4 scope mutation | PASS | PASS | invalid: scope expansion |
-| V5 expiry | PASS | PASS | invalid: expired |
-| V6 Business rejects at binding | AMBIGUOUS | AMBIGUOUS | valid + recognized, but rejected |
-| V7 modeled firm commitment | PASS | AMBIGUOUS | bound despite unrelated pre-bind drift |
-| V8 post-bind state drift | AMBIGUOUS | AMBIGUOUS | bound, later post-bind invalidated |
-| V9 conditional release | AMBIGUOUS | AMBIGUOUS | bound, release condition failed |
-| V10 partial independent units | AMBIGUOUS | AMBIGUOUS | 38/40 effectively bound; two explicitly failed |
-| V11 atomic group rejects | PASS | PASS | complete binding unit rejected |
+| V1 | PASS | AMBIGUOUS | bound / bound |
+| V2 | PASS | AMBIGUOUS | invalid_artifact / stale_revision |
+| V3 | PASS | PASS | bound / bound |
+| V4 | PASS | PASS | invalid_artifact / scope_expansion |
+| V5 | PASS | PASS | invalid_artifact / expired |
+| V6 | AMBIGUOUS | AMBIGUOUS | recognized_rejected / business_revalidation_failed |
+| V7 | PASS | AMBIGUOUS | bound / bound |
+| V8 | AMBIGUOUS | AMBIGUOUS | bound / bound -> post_bind_invalidated / inventory_allocation_changed |
+| V9 | AMBIGUOUS | AMBIGUOUS | bound / bound -> release_condition_failed / release_condition_failed |
+| V10 | AMBIGUOUS | AMBIGUOUS | partially_bound / partial_binding (38 effective, 2 failed) |
+| V11 | PASS | PASS | recognized_rejected / binding_unit_rejected (0 effective, 4 failed) |
+| V12 | AMBIGUOUS | AMBIGUOUS | partially_bound / partial_binding (3 effective, 1 failed) |
+| V13 | AMBIGUOUS | AMBIGUOUS | bound / bound -> deadline_non_execution / return_to_buyer |
+| V14 | AMBIGUOUS | AMBIGUOUS | bound / bound (40 effective, 0 failed) |
 
-The new vectors do not force a hybrid winner. They show that every carrier needs additional authoritative transaction-lifecycle semantics for V8–V9 and unit-granular binding/idempotency semantics for V10. Both models can preserve an authoritative atomic grouping in V11.
+PASS/AMBIGUOUS/FAIL assess declared carrier capabilities, not production adapters.
+The original A/B verdicts remain stable. The same evaluator executes every vector;
+the scorer is an inspectable capability assessment, not empirical interoperability
+proof. V12–V14 require added authoritative semantics under either carrier.
 
-## Revised candidate invariant set
+## Invariants and executable coverage
 
-All statements are **candidate invariants derived from implementation and review evidence**, not current UCP requirements.
+I1–I12 retain their numbering and semantics. I13, I16–I17 and I20 retain their
+principles. I14–I15 now distinguish deadline source and optional release; I18
+allows authorized cross-unit coupling alongside atomicity; I19 separates attempt
+identity from revision. I21–I23 are new.
 
-| Range | Candidate invariants |
+| Candidate | Concrete coverage |
 |---|---|
-| I1–I5 | Preserve identity, current revision, bounded scope, expiry, and acceptance provenance. |
-| I6–I11 | Separate validity from executability; expose issuer/authorization and commitment; prevent authority escalation; represent permitted rejection; preserve modeled firm commitments. |
-| I12 | Make binding deterministic for fixed artifact revision, request, Business state, and evaluation time. |
-| I13–I15 | Separate binding from execution; declare post-bind authority; make the term-expiry/transaction-lifetime relationship explicit. |
-| I16–I18 | Forbid silent contraction; permit partial success only through explicit independent units; preserve cross-line atomicity. |
-| I19 | Make retries idempotent at artifact + revision + binding unit membership + target transaction granularity. |
-| I20 | Conditional release preserves agreed terms and reports non-release rather than silently repricing. |
+| I1–I12 | Original V1–V7 and unchanged hash guards; later vectors retain authority checks |
+| I13 binding differs from execution | V8, V9; execution requires successful evaluated binding |
+| I14 orthogonal deadline and release | V9, V13; release success/failure/pending with each clock |
+| I15 explicit enforced deadline | transaction shorter than term, explicit deadline shorter than both, exact boundary tests |
+| I16 explicit contraction | V10–V12; dropped groups fail distinctly from expansion |
+| I17 grouped partial success | V10, V12; every unit result accounts for accepted scope |
+| I18 authorized atomic groups | V11; fresh-key membership mutation and unverified grouping controls |
+| I19 attempt identity and replay | V10, V14; same failed attempt stays failed; new success key adds no duplicate |
+| I20 term preservation on release | V9; repricing rejected, ordinary firm drift ignored |
+| I21 authorized contraction rule | V12; missing rule, unverified rule, accepted threshold, minimum failure controls |
+| I22 explicit deadline disposition | V13; buyer return, deemed acceptance, pending-after-deadline and boundary tests |
+| I23 failure-specific retry | V14; transient recovery versus structural history, stale/expired authorization and grouping controls |
 
-The normative-style detail and test consequences are in `invariants.md`.
+## Corrected semantics
 
-## Invariant coverage matrix
+Deadline selection and release are independent. The selected deadline is exclusive;
+resolution exactly at it is late. An authenticated earlier resolution remains
+effective when observed later. Deadline-time pending disposition is mandatory when
+a release condition exists. Neither buyer return nor deemed acceptance is a UCP
+default. Transaction lifetime is read when selected; the other clocks have no
+implicit precedence.
 
-| Candidate | Covered by |
-|---|---|
-| I1 identity | V1, V2, V3, V8 |
-| I2 revision | V1, V2, V10 |
-| I3 no scope expansion | V1, V4, V10 |
-| I4 expiry | V1, V2, V5 |
-| I5 acceptance provenance | V1, V2, V3 |
-| I6 validity ≠ executability | V6, V7, V8 |
-| I7 authority provenance | V1, V3, V6, V7 |
-| I8 commitment type | V1, V5, V6, V7, V8, V9 |
-| I9 no authority escalation | V1, V4, V6, V7 |
-| I10 classified revalidation rejection | V6 |
-| I11 modeled firm commitment | V5, V7, V9 |
-| I12 deterministic binding | V1–V8, V10, V11 |
-| I13 binding ≠ execution | V8, V9 |
-| I14 post-bind authority explicit | V8, V9 |
-| I15 dual clocks explicit | V8, V9 |
-| I16 no silent contraction | V10, V11 |
-| I17 explicit partial success | V10 |
-| I18 cross-line atomicity | V10, V11 |
-| I19 unit-granular idempotency | V10 |
-| I20 conditional release preserves terms | V9 |
+Binding authorization covers both group membership and contraction rules.
+Fulfillment-separable units may share an accepted tier. The harness implements only
+fixed prices and a small unit-count tier example, including no-matching-minimum
+rejection. It does not define a pricing language.
 
-## Result taxonomy
+Attempt A's recorded failure remains failed on replay. Attempt B may succeed after
+transient availability changes while authorization remains current and unexpired.
+Structural failure requires a new authorized transition. Successful units remain
+deduplicated even with a fresh attempt id. Attempt history is a supplied trusted
+Business snapshot, not client assertions.
 
-Binding-time artifact/result distinctions remain: malformed, unknown, forged, unauthorized issuer, identity mismatch, stale, not accepted, expired, scope expansion, scope contraction, currency/term mismatch, revalidation failure, firm-commitment invalidation, partial binding, and binding-unit rejection.
-
-Post-bind distinctions add: bound but not executable, release pending, release-condition failure, post-bind invalidation, and executed. Binding-unit results add: bound, rejected, and idempotent replay/already bound. Names are provisional and describe the harness, not proposed wire codes.
-
-## Model comparison after the new cases
+## Carrier comparison
 
 | Concern | Opaque reference | Portable artifact | Derived hybrid |
 |---|---|---|---|
-| post-bind authority | Business may know it internally; reference alone does not expose it | Rule can travel; artifact cannot enforce transaction state | Can compare declared rule with Business state, but still needs lifecycle semantics |
-| continued origin dependence | Natural to re-resolve, with availability cost | Must declare whether offline execution is authorized | Makes dependency explicit; does not remove it |
-| origin unavailable at release | Fail/defer unless authority transferred or cached resolution is explicitly valid | Structural checks continue; authority/currentness may be indeterminate | Behavior depends on declared transfer/release rule |
-| partial binding | Requires grouped Business results | Can expose group membership/results | Useful combination, but server still owns authoritative results |
-| atomicity declaration | Native resolver state can preserve dependencies | Group and conditions must be integrity-bound | Can compare portable projection with native group |
-| retry recognition | Business must deduplicate per unit/target | Replay identity can travel but cannot self-enforce | Same server-side requirement |
+| Deadline/release authority | Resolver/transaction must expose authoritative policy | Authenticated policy must survive normalization | Can compare both views; still needs lifecycle enforcement |
+| Pending disposition | Business must declare economic outcome | Must carry authorized outcome with condition | No automatic choice or universal default |
+| Adjustment authorization | Native accepted rule can be resolved | Rule and affected scope must be verifiable | Comparison helps detect mismatch; not a pricing language |
+| Cross-unit pricing/freight | Native detail retained | Lossy normalization must reject | Does not remove normalization risk |
+| Attempt history | Durable Business store | Portable ids cannot replace storage | Reference locates storage but still needs atomic deduplication |
+| Origin outage during retry | Defer/fail closed if history unavailable | Artifact alone cannot establish no previous success | Fresh cached state requires a declared trust/freshness policy |
 
-## Unresolved questions
+No carrier uniquely solves these problems. In particular, a hybrid remains
+AMBIGUOUS for V8–V10 and V12–V14 without execution and attempt-store contracts;
+V11's atomicity can be represented once authorization is established.
 
-1. Which post-bind rule is appropriate for which commitment: authority transfer, continued term expiry, separate deadline, conditional release, or another declared model?
-2. Which component is authoritative for execution/release events, and what happens when that component or the quote origin is unavailable?
-3. What minimum transaction state machine represents bound-not-executable, release pending/failure, invalidated, and executed without overfitting Checkout?
-4. How are binding units declared and authorized when their membership reflects volume, bundle, threshold, freight, or contractual dependencies?
-5. Can a failed unit later succeed under the same artifact revision, or must recovery always be a new authorized transition/revision?
-6. How should a transaction expose effective bound scope versus newly bound scope on idempotent replay?
-7. What trust mechanism proves issuer authorization for portable artifacts and their post-bind/atomicity declarations?
-8. Must supersession be checked online, or can bounded lifetime and offline-verifiable commitments suffice in some profiles?
-9. Where do binding and release operations belong: Cart, Checkout, a separate pre-Checkout resource, or a transaction extension?
+## Audit record
 
-## Maturity assessment
+The semantic pass checks orthogonality, explicit deadline disposition, authorized
+adjustment, attempt-versus-revision separation, failure classes, and commitment
+preservation. It found and corrected the old unlimited pending path and permanently
+failed revision behavior. Accepted groups now constrain retry membership.
 
-| Next artifact | Ready? | Basis |
-|---|---|---|
-| another #812 discussion comment | **Yes** | Eleven executable vectors now expose both gaps and invite review of concrete semantics. |
-| vendor-namespaced experiment | **Not yet started; design is ready to scope** | The next review should first challenge dual-clock choices and group/idempotency semantics. |
-| UCP proposal | **Not yet** | Lifecycle placement, release authority, recovery transitions, and group authorization remain unresolved. |
-| upstream PR | **No** | No protocol shape or maintainer direction is agreed. |
+The adversarial pass exercises late/exact-boundary release, every clock source,
+shorter transaction/explicit deadlines, missing/unverified recomputation, new
+transient attempts, same-attempt replay, structural failures, changed grouping,
+and prior successful scope. It also exposed the need to gate lifecycle evaluation
+on actual binding rather than fixture expectations and to reject adjustments that
+would retroactively reprice a previously bound unit. Both are checked.
 
-## Recommended next step for #812
+Schema validation applies to all vectors; complete matrix output is compared
+verbatim with this document. Legacy hashes and attribution hygiene remain guarded.
+Final verification: 59/59 tests pass, all 14 vectors validate, all 16 JSON files
+parse, the Draft 7 schema validates, V1–V7 hashes are unchanged, and
+`git diff --check` passes. The semantic and adversarial audit checks are in
+`tests/test_review.py`; the original regression checks remain in `tests/test_vectors.py`.
+Timeline/events are explanatory evidence, not an event-sourced production engine.
+Verification flags stand for trusted full-content authorization, not a cryptographic
+implementation. Attempt history is not persisted or locked by this harness.
 
-Link this revision and ask reviewers to attack the declared lifecycle and grouping boundaries: whether V8's post-bind invalidation is allowed under the stated commitment, whether V9 cleanly separates release failure from repricing, whether V10's grouping and replay identity are sufficient, and whether V11 captures the right atomic rejection behavior. Do not start a schema proposal or implementation until those semantics survive review.
+## Remaining review questions and maturity
 
-## Proposed #812 update (do not post)
+- Are exclusive deadline boundaries and late observation of verified earlier
+  resolutions the intended semantics?
+- What proves release event time and the authority of pending disposition?
+- Which additional contraction policies are useful without a universal pricing language?
+- How should a later contraction affecting already-bound scope be authorized?
+- Where should durable attempt history live, and what isolation guarantees prevent
+  simultaneous binds from duplicating scope?
+- How should history replay after expired/superseded authorization be exposed?
+  Current admission checks fail closed before fresh binding; historical lookup is
+  a separate operation not implemented here.
+- Which structural failures can recover through an authorized transition without
+  issuing a numerically new commercial revision?
 
-> Weston, I extended the artifact to cover both gaps you identified without changing V1–V7. V8 now models a successful bind followed by pre-execution state drift, with the term-expiry/transaction-lifetime rule made explicit. V9 models the alternative you named: fixed commercial terms with execution or settlement gated by a declared release condition, where condition failure is explicit and does not reprice.
->
-> For partial binding, I did not make lines universally severable. V10 groups a 40-line award into four independent all-or-nothing binding units: 38 lines are effectively bound, two fail explicitly, and replay of an already-bound unit adds no duplicate lines. V11 puts several commercially dependent lines in one atomic unit and rejects the whole group when one required line is unavailable.
->
-> The new invariants cover binding versus execution, explicit dual-clock/post-bind authority, no silent contraction, grouped partial success, cross-line atomicity, unit-granular idempotency, and term-preserving conditional release. The model comparison still does not force a hybrid: both carriers need added transaction-lifecycle and binding-operation semantics.
->
-> Could you challenge the lifecycle and atomicity choices specifically—especially whether the four post-bind authority modes are distinct enough, whether a failed unit requires a new artifact revision before later success, and whether the replay identity has the right semantic inputs?
+Ready for an open review PR and a discussion reply pointing to its diff.
+Leave the PR open pending external review. A vendor experiment is not started.
+A UCP proposal or upstream PR is premature. Every requested class is represented;
+authentication, payment movement, persistent/concurrent attempt storage, and
+additional economic dispositions remain explicitly outside this analysis harness.

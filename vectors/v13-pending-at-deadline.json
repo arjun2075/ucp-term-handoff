@@ -1,12 +1,12 @@
 {
-  "id": "V9",
-  "title": "Conditional release preserves terms and fails explicitly",
+  "id": "V13",
+  "title": "Pending delivery at transaction deadline returns value toward buyer",
   "timeline": [
     {"at":"2026-09-12T09:00:00Z","actor":"business","event":"conditional_quote_issued","revision":1},
     {"at":"2026-09-12T09:30:00Z","actor":"buyer","event":"quote_accepted","revision":1},
     {"at":"2026-09-12T10:00:00Z","actor":"business","event":"terms_bound_release_pending","revision":1},
     {"at":"2026-09-13T10:00:00Z","actor":"business","event":"freight_market_changed_without_repricing","revision":1},
-    {"at":"2026-09-14T10:00:00Z","actor":"release_authority","event":"delivery_confirmation_failed","revision":1}
+    {"at":"2026-09-20T00:00:00Z","actor":"release_authority","event":"delivery_unresolved_at_deadline","revision":1}
   ],
   "term_artifact": {
     "id": "quote-9001",
@@ -62,27 +62,13 @@
       "pending_at_deadline": "return_to_buyer"
     },
     "events": [{"at":"2026-09-12T10:00:00Z","event":"release_pending"},{"at":"2026-09-13T10:00:00Z","event":"freight_market_changed_without_repricing"}],
-    "execution_attempt": {
-      "at": "2026-09-14T10:00:00Z",
-      "release_condition_met": false,
-      "active_invalidation_conditions": [],
-      "terms_unchanged": true,
-      "release_resolved_at": "2026-09-14T10:00:00Z"
-    },
-    "expected": {"status":"release_condition_failed","reason":"release_condition_failed","executed":false,"terms_preserved":true}
+    "execution_attempt": {"at":"2026-09-20T00:00:00Z","release_condition_met":null,"active_invalidation_conditions":[],"terms_unchanged":true,"release_resolved_at":null},
+    "expected": {"status":"deadline_non_execution","reason":"return_to_buyer","executed":false,"terms_preserved":true}
   },
   "expected": {"recognized":true,"artifact_valid":true,"bindable":true,"outcome":"bound","reason":"bound"},
   "model_requirements": {
-    "opaque_reference": {
-      "requires": ["business_commitment_resolution","transaction_lifecycle","conditional_release"],
-      "expected_verdict": "AMBIGUOUS",
-      "rationale": "Business resolution can lock terms, but the reference model alone does not carry release state or failure semantics."
-    },
-    "portable_artifact": {
-      "requires": ["portable_commitment_visibility","transaction_lifecycle","conditional_release"],
-      "expected_verdict": "AMBIGUOUS",
-      "rationale": "Portable terms expose the condition, but authoritative release evaluation still needs a transaction-level contract."
-    }
+    "opaque_reference": {"requires":["deadline_disposition"],"expected_verdict":"AMBIGUOUS","rationale":"The carrier must preserve the authorized allocation of value at deadline."},
+    "portable_artifact": {"requires":["deadline_disposition"],"expected_verdict":"AMBIGUOUS","rationale":"The carrier must preserve the authorized allocation of value at deadline."}
   },
-  "invariants": ["I8","I11","I13","I14","I15","I20"]
+  "invariants": ["I13","I14","I15","I20","I22"]
 }
