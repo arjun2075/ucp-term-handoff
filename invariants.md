@@ -136,6 +136,8 @@ is available before a terminal outcome is applied. The harness persists the firs
 terminal outcome, including its application time and classification; later
 evaluation of the same bound transaction reproduces it. Late evidence may support
 a separate correction or dispute, but cannot rewrite the original allocation.
+Persisted deadline dispositions cannot claim an application time before the
+selected governing deadline.
 `release_resolved_at` records event time; future or pre-bind evidence rejects.
 Without a condition, execution at or after the deadline rejects. With a pending
 condition before the deadline it remains pending; at or after the deadline it

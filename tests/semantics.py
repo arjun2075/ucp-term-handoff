@@ -30,13 +30,6 @@ def lifecycle(vector, binding):
         return answer('post_bind_invalidated', 'transaction_mismatch')
     if post['bound_at'] != vector['binding_request']['at']:
         return answer('post_bind_invalidated', 'invalid_lifecycle_timing')
-    terminal = post.get('terminal_outcome')
-    if terminal is not None:
-        if (instant(terminal['applied_at']) < instant(post['bound_at'])
-                or instant(terminal['applied_at']) > instant(attempt['at'])):
-            return answer('post_bind_invalidated', 'invalid_lifecycle_timing')
-        return answer(terminal['status'], terminal['reason'], terminal['executed'],
-                      terminal['terms_preserved'])
     deadlines = {
         'term_expiry': vector['term_artifact']['expires_at'],
         'transaction_lifetime': post['transaction']['valid_until'],
@@ -46,6 +39,15 @@ def lifecycle(vector, binding):
     now, bound = instant(attempt['at']), instant(post['bound_at'])
     if now < bound or deadline <= bound:
         return answer('post_bind_invalidated', 'invalid_lifecycle_timing')
+    terminal = post.get('terminal_outcome')
+    if terminal is not None:
+        applied = instant(terminal['applied_at'])
+        deadline_dispositions = ('return_to_buyer', 'deemed_acceptance_to_business')
+        if (applied < bound or applied > now
+                or (terminal['reason'] in deadline_dispositions and applied < deadline)):
+            return answer('post_bind_invalidated', 'invalid_lifecycle_timing')
+        return answer(terminal['status'], terminal['reason'], terminal['executed'],
+                      terminal['terms_preserved'])
     if not attempt['terms_unchanged']:
         return answer('post_bind_invalidated', 'commercial_terms_reinterpreted', preserved=False)
     invalidations = set(attempt['active_invalidation_conditions']) & set(policy['execution_invalidation_conditions'])

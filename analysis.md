@@ -100,8 +100,9 @@ available before disposition. Once the first terminal outcome is applied, its ti
 and classification are persisted and later evaluation reproduces it; late evidence
 belongs to a separate claim/correction process outside this harness. Deadline-time
 pending disposition is mandatory when a release condition exists. Neither buyer
-return nor deemed acceptance is a UCP default. Transaction lifetime is read when
-selected; the other clocks have no implicit precedence.
+return nor deemed acceptance is a UCP default, and neither may be recorded as
+applied before the governing deadline. Transaction lifetime is read when selected;
+the other clocks have no implicit precedence.
 
 Binding authorization covers both group membership and contraction rules.
 Fulfillment-separable units may share an accepted tier. The harness implements only
@@ -149,7 +150,7 @@ grouping, and prior successful scope.
 
 Schema validation applies to all vectors; complete matrix output is compared
 verbatim with this document. Legacy hashes and attribution hygiene remain guarded.
-Final verification: 69/69 tests pass, all 14 vectors validate, all 16 JSON files
+Final verification: 70/70 tests pass, all 14 vectors validate, all 16 JSON files
 parse, the Draft 7 schema validates, V1–V7 hashes are unchanged, and
 `git diff --check` passes. The semantic and adversarial audit checks are in
 `tests/test_review.py`; the original regression checks remain in `tests/test_vectors.py`.

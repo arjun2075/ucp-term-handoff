@@ -44,14 +44,21 @@ class ReviewTests(unittest.TestCase):
 
     def test_release_exactly_at_deadline_is_too_late(self):
         v = self.fixture(13)
+        v['post_bind']['terminal_outcome'] = None
         a = v['post_bind']['execution_attempt']
         a.update(release_condition_met=True, release_resolved_at=a['at'])
         self.assertEqual('return_to_buyer', evaluate_post_bind(v)['reason'])
 
     def test_pending_after_deadline_cannot_remain_pending(self):
         v = self.fixture(13)
+        v['post_bind']['terminal_outcome'] = None
         v['post_bind']['execution_attempt']['at'] = '2026-10-01T00:00:00Z'
         self.assertEqual('deadline_non_execution', evaluate_post_bind(v)['status'])
+
+    def test_persisted_deadline_disposition_cannot_predate_deadline(self):
+        v = self.fixture(13)
+        v['post_bind']['terminal_outcome']['applied_at'] = '2026-09-19T00:00:00Z'
+        self.assertEqual('invalid_lifecycle_timing', evaluate_post_bind(v)['reason'])
 
     def test_explicit_deemed_acceptance_allocates_to_business(self):
         v = self.fixture(13)
