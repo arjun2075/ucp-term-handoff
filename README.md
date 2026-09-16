@@ -23,7 +23,7 @@ python3 -m unittest discover -s tests -v
 python3 tests/test_vectors.py --matrix
 ```
 
-The execution policy composes a deadline source with an optional release condition and an explicit pending-at-deadline disposition. Accepted rules govern cross-unit contraction; attempt identity is separate from commercial revision.
+The execution policy composes a deadline source with an optional release condition and an explicit, persisted terminal disposition. Accepted rules govern cross-unit contraction and explicit adjustments against recorded historical basis. Recovery distinguishes caller attempt identity, Business state, service availability, and changed authorization.
 
 The first command validates every vector and runs the semantic and cross-vector audits. The second prints the review matrix used in `analysis.md`.
 

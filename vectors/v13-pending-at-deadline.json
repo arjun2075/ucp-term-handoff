@@ -63,6 +63,7 @@
     },
     "events": [{"at":"2026-09-12T10:00:00Z","event":"release_pending"},{"at":"2026-09-13T10:00:00Z","event":"freight_market_changed_without_repricing"}],
     "execution_attempt": {"at":"2026-09-20T00:00:00Z","release_condition_met":null,"active_invalidation_conditions":[],"terms_unchanged":true,"release_resolved_at":null},
+    "terminal_outcome": {"applied_at":"2026-09-20T00:00:00Z","status":"deadline_non_execution","reason":"return_to_buyer","executed":false,"terms_preserved":true},
     "expected": {"status":"deadline_non_execution","reason":"return_to_buyer","executed":false,"terms_preserved":true}
   },
   "expected": {"recognized":true,"artifact_valid":true,"bindable":true,"outcome":"bound","reason":"bound"},

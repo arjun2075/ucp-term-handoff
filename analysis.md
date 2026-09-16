@@ -13,6 +13,11 @@ one-line special case. He identifies three defects: deadline and release were
 exclusive alternatives; partial binding ignored cross-unit commercial coupling;
 and retries conflated attempt identity with commercial revision.
 
+[Weston's September 16 follow-up](https://github.com/Universal-Commerce-Protocol/ucp/discussions/812#discussioncomment-18469224)
+confirms those directions while identifying three remaining correctness gaps:
+deadline disposition was reversible by late evidence, bound history omitted its
+actual commercial basis, and retry classification did not follow recovery owner.
+
 Juan/Shopware supplies independent implementation evidence. Weston supplies
 technical review and binding-unit validation. Arjun Garg supplies the generalized
 model, binding-unit and authorized-adjustment synthesis, invariants, harness,
@@ -32,11 +37,14 @@ vectors, and analysis.
   and attempt-history representation; one unavailable line still rejects all four.
 - V12 adds four independently fulfillable units with an accepted whole-award tier.
   Three survive, one fails; the accepted table changes survivor unit prices from
-  1000 to 1200. Missing/unverified rules and ad-hoc prices reject in controls.
+  1000 to 1200. Replay controls record that 1200 basis; a later U4 restock emits
+  explicit accepted adjustments rather than silently rewriting U1–U3.
 - V13 adds pending delivery at transaction expiry with explicit non-execution and
-  return toward the buyer. The alternative deemed-acceptance disposition is tested.
+  return toward the buyer. Its applied terminal result is persisted; both it and
+  the alternative deemed-acceptance disposition resist contradictory late evidence.
 - V14 adds fresh U4 attempt B after restock under revision 4; all 40 lines become
-  effective, 30 new, with previously successful U1 replayed without duplication.
+  effective, 30 new, with previously successful U1 replayed at its recorded
+  commercial basis and without duplication.
 
 ## Executable matrix
 
@@ -78,29 +86,36 @@ identity from revision. I21–I23 are new.
 | I16 explicit contraction | V10–V12; dropped groups fail distinctly from expansion |
 | I17 grouped partial success | V10, V12; every unit result accounts for accepted scope |
 | I18 authorized atomic groups | V11; fresh-key membership mutation and unverified grouping controls |
-| I19 attempt identity and replay | V10, V14; same failed attempt stays failed; new success key adds no duplicate |
+| I19 attempt identity, basis, replay | V10, V12, V14; successful history records prices, same attempt replays, fresh keys add no duplicate |
 | I20 term preservation on release | V9; repricing rejected, ordinary firm drift ignored |
-| I21 authorized contraction rule | V12; missing rule, unverified rule, accepted threshold, minimum failure controls |
-| I22 explicit deadline disposition | V13; buyer return, deemed acceptance, pending-after-deadline and boundary tests |
-| I23 failure-specific retry | V14; transient recovery versus structural history, stale/expired authorization and grouping controls |
+| I21 authorized contraction/adjustment | V12; historical-basis replay, explicit accepted tier adjustment, missing/uncovered basis controls |
+| I22 final deadline disposition | V13; buyer return and deemed acceptance remain final despite contrary late evidence |
+| I23 recovery ownership | V14; distinct caller-id, Business-state, service-availability, and authorization recovery actions |
 
 ## Corrected semantics
 
 Deadline selection and release are independent. The selected deadline is exclusive;
-resolution exactly at it is late. An authenticated earlier resolution remains
-effective when observed later. Deadline-time pending disposition is mandatory when
-a release condition exists. Neither buyer return nor deemed acceptance is a UCP
-default. Transaction lifetime is read when selected; the other clocks have no
-implicit precedence.
+resolution exactly at it is late. An authenticated earlier resolution governs if
+available before disposition. Once the first terminal outcome is applied, its time
+and classification are persisted and later evaluation reproduces it; late evidence
+belongs to a separate claim/correction process outside this harness. Deadline-time
+pending disposition is mandatory when a release condition exists. Neither buyer
+return nor deemed acceptance is a UCP default. Transaction lifetime is read when
+selected; the other clocks have no implicit precedence.
 
 Binding authorization covers both group membership and contraction rules.
 Fulfillment-separable units may share an accepted tier. The harness implements only
 fixed prices and a small unit-count tier example, including no-matching-minimum
-rejection. It does not define a pricing language.
+rejection. Successful history records the basis actually bound. When later scope
+changes the accepted tier, historical prices stay intact and explicit adjustments
+identify old basis, new basis, and the accepted rule. Missing basis and adjustments
+outside that rule fail closed. It does not define a pricing language.
 
-Attempt A's recorded failure remains failed on replay. Attempt B may succeed after
-transient availability changes while authorization remains current and unexpired.
-Structural failure requires a new authorized transition. Successful units remain
+Attempt A's recorded failure remains failed on replay. Recovery identifies who can
+make progress: a conflicting id requires a fresh id, inventory recovery permits a
+fresh attempt, history-store recovery permits the same attempt later, and changed
+structural/commercial semantics require a new authorized transition. Authorization
+is not needlessly replaced when it remains valid. Successful units remain
 deduplicated even with a fresh attempt id. Attempt history is a supplied trusted
 Business snapshot, not client assertions.
 
@@ -109,8 +124,8 @@ Business snapshot, not client assertions.
 | Concern | Opaque reference | Portable artifact | Derived hybrid |
 |---|---|---|---|
 | Deadline/release authority | Resolver/transaction must expose authoritative policy | Authenticated policy must survive normalization | Can compare both views; still needs lifecycle enforcement |
-| Pending disposition | Business must declare economic outcome | Must carry authorized outcome with condition | No automatic choice or universal default |
-| Adjustment authorization | Native accepted rule can be resolved | Rule and affected scope must be verifiable | Comparison helps detect mismatch; not a pricing language |
+| Pending disposition | Business must declare and persist terminal outcome | Must carry authorized outcome with condition | No automatic choice or universal default |
+| Adjustment authorization | Native accepted rule and bound basis can be resolved | Rule, affected scope, and historical basis must be verifiable | Comparison helps detect mismatch; not a pricing language |
 | Cross-unit pricing/freight | Native detail retained | Lossy normalization must reject | Does not remove normalization risk |
 | Attempt history | Durable Business store | Portable ids cannot replace storage | Reference locates storage but still needs atomic deduplication |
 | Origin outage during retry | Defer/fail closed if history unavailable | Artifact alone cannot establish no previous success | Fresh cached state requires a declared trust/freshness policy |
@@ -121,21 +136,20 @@ V11's atomicity can be represented once authorization is established.
 
 ## Audit record
 
-The semantic pass checks orthogonality, explicit deadline disposition, authorized
-adjustment, attempt-versus-revision separation, failure classes, and commitment
-preservation. It found and corrected the old unlimited pending path and permanently
-failed revision behavior. Accepted groups now constrain retry membership.
+The semantic pass checks orthogonality, final deadline disposition, authoritative
+historical basis, explicit authorized adjustment, recovery ownership, and
+commitment preservation. The first applied terminal result is immutable, accepted
+groups constrain retry membership, and outages no longer imply artifact defect.
 
-The adversarial pass exercises late/exact-boundary release, every clock source,
-shorter transaction/explicit deadlines, missing/unverified recomputation, new
-transient attempts, same-attempt replay, structural failures, changed grouping,
-and prior successful scope. It also exposed the need to gate lifecycle evaluation
-on actual binding rather than fixture expectations and to reject adjustments that
-would retroactively reprice a previously bound unit. Both are checked.
+The adversarial pass exercises contradictory late evidence after both deadline
+dispositions, pre-disposition evidence, every clock source, V12 replay at 1200,
+restock adjustment to 1000, missing and uncovered historical basis, caller-id
+conflict, inventory recovery, history-store recovery, structural failures, changed
+grouping, and prior successful scope.
 
 Schema validation applies to all vectors; complete matrix output is compared
 verbatim with this document. Legacy hashes and attribution hygiene remain guarded.
-Final verification: 59/59 tests pass, all 14 vectors validate, all 16 JSON files
+Final verification: 69/69 tests pass, all 14 vectors validate, all 16 JSON files
 parse, the Draft 7 schema validates, V1–V7 hashes are unchanged, and
 `git diff --check` passes. The semantic and adversarial audit checks are in
 `tests/test_review.py`; the original regression checks remain in `tests/test_vectors.py`.
@@ -149,7 +163,7 @@ implementation. Attempt history is not persisted or locked by this harness.
   resolutions the intended semantics?
 - What proves release event time and the authority of pending disposition?
 - Which additional contraction policies are useful without a universal pricing language?
-- How should a later contraction affecting already-bound scope be authorized?
+- Which explicit adjustment forms beyond the accepted unit-count tier are needed?
 - Where should durable attempt history live, and what isolation guarantees prevent
   simultaneous binds from duplicating scope?
 - How should history replay after expired/superseded authorization be exposed?

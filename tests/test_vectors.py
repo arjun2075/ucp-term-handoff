@@ -75,7 +75,10 @@ def evaluate(vector):
     if request["artifact_id"] != artifact["id"] or request["issuer"] != artifact["issuer"] or request["buyer"] != artifact["buyer_scope"]:
         return result(True, False, False, "invalid_artifact", "identity_mismatch")
     if request["revision"] != artifact["revision"] or artifact["revision"] != state["current_revision"]:
-        return result(True, False, False, "invalid_artifact", "stale_revision")
+        rejected = result(True, False, False, "invalid_artifact", "stale_revision")
+        if "binding_units" in vector:
+            rejected["recovery_action"] = "new_authorized_transition"
+        return rejected
 
     acceptance = artifact["acceptance"]
     if (
@@ -86,7 +89,10 @@ def evaluate(vector):
     ):
         return result(True, False, False, "invalid_artifact", "not_accepted")
     if instant(request["at"]) >= instant(artifact["expires_at"]):
-        return result(True, False, False, "invalid_artifact", "expired")
+        rejected = result(True, False, False, "invalid_artifact", "expired")
+        if "binding_units" in vector:
+            rejected["recovery_action"] = "new_authorized_transition"
+        return rejected
     if request["currency"] != artifact["currency"]:
         return result(True, False, False, "invalid_artifact", "currency_mismatch")
     if request["commercial_terms"] != artifact["commercial_terms"]:
@@ -301,6 +307,20 @@ class TestVectors(unittest.TestCase):
                     actual = evaluate(vector)["unit_results"]
                     declared = [unit["expected"] for unit in vector["binding_units"]]
                     self.assertEqual(declared, actual)
+
+    def test_successful_attempt_history_records_commercial_basis(self):
+        for vector in self.vectors:
+            for record in vector["business_state"].get("attempt_history", []):
+                if record["reason"] == "bound":
+                    with self.subTest(vector=vector["id"], attempt=record["attempt_id"]):
+                        self.assertEqual(set(record["line_ids"]), set(record["effective_unit_prices"]))
+
+    def test_persisted_terminal_outcome_reproduces_fixture_result(self):
+        for vector in self.vectors:
+            terminal = vector.get("post_bind", {}).get("terminal_outcome")
+            if terminal is not None:
+                with self.subTest(vector=vector["id"]):
+                    self.assertEqual(vector["post_bind"]["expected"], evaluate_post_bind(vector))
 
     def test_documented_matrix_matches_actual_model_scorer(self):
         analysis = (ROOT / "analysis.md").read_text(encoding="utf-8")

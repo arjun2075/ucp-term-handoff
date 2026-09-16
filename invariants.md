@@ -55,11 +55,11 @@ Binding success answers whether authoritative transaction state was created. It 
 | I16 | Scope contraction MUST NOT be silent. | Omitted accepted scope is rejected or reported as an explicit failed binding unit. |
 | I17 | Partial success MUST identify independent binding units and their results. | Artifact-wide success cannot hide failed units; artifact-wide failure need not discard successful independent units. |
 | I18 | Cross-line dependencies MUST have declared atomicity and, where units are separable, authorized contraction semantics. | An atomic unit binds whole or rejects; cross-unit commercial conditions follow I21. |
-| I19 | Attempt identity MUST be separate from accepted artifact revision. | Same-attempt replay preserves the recorded result; successful scope cannot bind twice, even under a fresh attempt. |
+| I19 | Attempt identity MUST be separate from accepted artifact revision, and successful history MUST preserve the effective commercial basis of bound scope. | Same-attempt replay preserves the recorded result and price basis; successful scope cannot bind twice, even under a fresh attempt. |
 | I20 | Conditional release MUST preserve agreed commercial terms. | Intermediate drift and release disposition cannot silently reprice. |
-| I21 | Cross-unit contraction MUST use a deterministic rule covered by accepted Business authorization before surviving terms change. | Fixed prices, accepted tiers, or a declared minimum are permissible; missing or unverified adjustment authority fails closed. |
-| I22 | Pending release at the governing deadline MUST have an explicit authorized disposition. | Buyer return/non-execution and deemed acceptance toward the Business are separate economic choices; neither is a default. |
-| I23 | Retry eligibility MUST follow the failure class and preserve authorized unit composition. | A fresh attempt can recover transient availability under current unexpired authorization; structural failures require a new authorized transition. |
+| I21 | Cross-unit contraction and later adjustment MUST use a deterministic rule covered by accepted Business authorization; changes to already-bound scope MUST be explicit. | Fixed prices, accepted tiers, or a declared minimum are permissible; accepted tier changes emit adjustments against historical basis, while missing, unverifiable, or uncovered authority fails closed. |
+| I22 | Pending release at the governing deadline MUST have an explicit authorized disposition that is final once applied. | Buyer return/non-execution and deemed acceptance toward the Business are separate economic choices; neither is a default, and late evidence cannot rewrite the allocated outcome. |
+| I23 | Retry/recovery behavior MUST identify who or what can make progress while preserving authorized unit composition. | Attempt-id conflicts require a new id under the same revision, availability drift permits a fresh attempt, history-store outage permits the same attempt later, and structural/authorization failures require a new authorized transition. |
 
 I13–I23 are candidate semantics prompted by Weston's lifecycle and partial-binding review. They do not revise I1–I12 or claim current UCP requirements.
 
@@ -90,6 +90,7 @@ I13–I23 are candidate semantics prompted by Weston's lifecycle and partial-bin
 | transaction lifetime | invariant at the execution boundary | It is a distinct clock from term expiry even when policy aligns their deadlines. |
 | release and execution invalidation conditions | semantic invariant when used | Conditions must be declared and produce explicit outcomes; exact condition vocabulary is implementation-specific. |
 | binding-unit identity, revision, included lines, atomicity, result, and replay identity | invariant for partial binding | Group composition and key format remain implementation-specific. |
+| effective commercial basis of successfully bound scope | invariant for replay and later adjustment | Authoritative history must record enough per-line/unit basis to compare later accepted rules without guessing from list price. |
 | negotiation messages, status names, polling interval, internal approvals, tax display decomposition | implementation-specific | Useful to the formation mechanism, but not necessary at the handoff if acceptance provenance and semantic scope survive. |
 
 ## Authority model
@@ -130,11 +131,15 @@ These are modeled economic instructions, not actual payment movements.
 Additional dispositions need defined behavior before the harness accepts them.
 
 The deadline is exclusive. A resolution exactly at it is late and the declared
-pending disposition applies. An authenticated resolution before it remains
-effective when observed later. `release_resolved_at` records that event time;
-future or pre-bind evidence rejects. Without a condition, execution at or after
-the deadline rejects. With a pending condition before the deadline it remains
-pending; at or after the deadline it cannot remain pending.
+pending disposition applies. An authenticated resolution before it governs if it
+is available before a terminal outcome is applied. The harness persists the first
+terminal outcome, including its application time and classification; later
+evaluation of the same bound transaction reproduces it. Late evidence may support
+a separate correction or dispute, but cannot rewrite the original allocation.
+`release_resolved_at` records event time; future or pre-bind evidence rejects.
+Without a condition, execution at or after the deadline rejects. With a pending
+condition before the deadline it remains pending; at or after the deadline it
+cannot remain pending. `release_pending` is not terminal.
 
 Declared execution invalidations and term preservation are checked independently.
 An ordinary drift event cannot invalidate a firm commitment unless authorized.
@@ -155,16 +160,23 @@ the highest accepted minimum-unit threshold satisfied by effective bound units.
 It emits the resulting prices explicitly. No matching threshold rejects the
 commercial basis. A missing rule or failed adjustment verification rejects
 contracted scope. This table is an example fixture, not a general pricing language.
-A later adjustment that would reprice already-bound scope requires another
-authorized transition; the harness does not implement retroactive repricing.
+Successful attempt history records the effective per-line prices at binding. If a
+later accepted tier changes what is owed on already-bound scope, the historical
+prices remain visible and the result emits explicit adjustments with previous
+basis, new basis, and accepted authorization source. The accepted rule itself is
+sufficient authority; a new revision is not invented. Missing historical basis or
+an adjustment not covered by that rule fails closed.
 
 The Business maintains attempt history keyed by `attempt_id`, separate from
-artifact identity/revision. Each record binds unit membership and target.
-Replaying an attempt preserves its recorded success/failure; a new attempt may
-recover `line_unavailable` under the same current, unexpired revision.
-Structural errors (stale revision, atomicity/grouping, unauthorized scope, invalid
-semantics) require a new authorized transition. Already-bound units return no new
-scope even on a fresh attempt. Missing authoritative history fails closed.
+artifact identity/revision. Each record binds unit membership and target, and a
+successful record also binds its effective commercial basis. Replaying an attempt
+preserves its recorded success/failure. Recovery follows ownership: an
+`idempotency_conflict` requires a new attempt id under the same valid revision;
+`line_unavailable` permits a fresh attempt under that revision;
+`attempt_history_unavailable` permits the same attempt later after service
+recovery; and structural/authorization failures require a new authorized
+transition. Already-bound units return no new scope even on a fresh attempt.
+Missing authoritative history fails closed without calling the artifact invalid.
 
 History is supplied as a trusted Business-store snapshot in this harness. Revision
 content is immutable and verification booleans attest the complete accepted

@@ -6,9 +6,13 @@ def instant(value):
     return datetime.fromisoformat(value.replace('Z', '+00:00'))
 
 
-def retry_class(reason):
+def recovery_action(reason):
+    if reason == 'idempotency_conflict':
+        return 'new_attempt_id_same_revision'
     if reason == 'line_unavailable':
         return 'new_attempt_same_revision'
+    if reason == 'attempt_history_unavailable':
+        return 'same_attempt_later'
     if reason in ('bound', 'already_bound'):
         return 'already_bound'
     return 'new_authorized_transition'
@@ -26,6 +30,13 @@ def lifecycle(vector, binding):
         return answer('post_bind_invalidated', 'transaction_mismatch')
     if post['bound_at'] != vector['binding_request']['at']:
         return answer('post_bind_invalidated', 'invalid_lifecycle_timing')
+    terminal = post.get('terminal_outcome')
+    if terminal is not None:
+        if (instant(terminal['applied_at']) < instant(post['bound_at'])
+                or instant(terminal['applied_at']) > instant(attempt['at'])):
+            return answer('post_bind_invalidated', 'invalid_lifecycle_timing')
+        return answer(terminal['status'], terminal['reason'], terminal['executed'],
+                      terminal['terms_preserved'])
     deadlines = {
         'term_expiry': vector['term_artifact']['expires_at'],
         'transaction_lifetime': post['transaction']['valid_until'],
@@ -75,8 +86,12 @@ def units(vector):
     requested = vector['binding_request']
     groups = vector['binding_units']
     def failure(reason):
-        return dict(recognized=True, artifact_valid=False, bindable=False,
-                    outcome='invalid_artifact', reason=reason)
+        artifact_valid = reason in ('attempt_history_unavailable', 'idempotency_conflict')
+        answer = dict(recognized=True, artifact_valid=artifact_valid, bindable=False,
+                      outcome='recognized_rejected' if artifact_valid else 'invalid_artifact',
+                      reason=reason)
+        answer['recovery_action'] = recovery_action(reason)
+        return answer
     if not state['binding_authorization_verified']:
         return failure('unauthorized_grouping')
     declared = {g['id']: g for g in scope['groups']}
@@ -139,30 +154,67 @@ def units(vector):
             effective, newly, kind = [], [], 'binding_unit_rejected'
         outputs.append(dict(binding_unit_id=group['id'], result=kind, reason=reason,
                             effective_bound_line_ids=effective, newly_bound_line_ids=newly,
-                            retry_class=retry_class(reason)))
+                            retry_class=recovery_action(reason)))
     effective = {line for out in outputs for line in out['effective_bound_line_ids']}
     newly = {line for out in outputs for line in out['newly_bound_line_ids']}
     failed = set(line_map) - effective
     prices = {line: line_map[line]['unit_price'] for line in sorted(effective)}
+    historical_prices = {}
+    prior_units = set()
+    group_map = {group['id']: group for group in groups}
+    for out in outputs:
+        if out['reason'] != 'already_bound':
+            continue
+        group = group_map[out['binding_unit_id']]
+        identity = dict(artifact_id=artifact['id'], revision=group['accepted_revision'],
+                        binding_unit_id=group['id'], line_ids=group['line_ids'],
+                        target_transaction=group['target_transaction'])
+        record = next((h for h in history
+                       if h['reason'] == 'bound'
+                       and all(h[k] == value for k, value in identity.items())), None)
+        if record is None or 'effective_unit_prices' not in record:
+            return failure('commercial_basis_history_unavailable')
+        if set(record['effective_unit_prices']) != set(out['effective_bound_line_ids']):
+            return failure('commercial_basis_history_unavailable')
+        prior_units.add(out['binding_unit_id'])
+        historical_prices.update(record['effective_unit_prices'])
     rule = scope['contraction_rule']
     if failed and effective:
         if rule is None or not state['adjustment_authorization_verified']:
             return failure('unauthorized_adjustment')
-        if rule['type'] == 'unit_count_tier':
-            thresholds = [row['minimum_units'] for row in rule['tiers']]
-            if len(thresholds) != len(set(thresholds)):
-                return failure('invalid_artifact_semantics')
-            count = sum(len(out['effective_bound_line_ids']) > 0 for out in outputs)
-            choices = [row for row in rule['tiers'] if count >= row['minimum_units']]
-            if not choices:
-                return failure('commercial_basis_unsatisfied')
-            selected = max(choices, key=lambda row: row['minimum_units'])
-            prices = {line: selected['unit_price'] for line in sorted(effective)}
-            # No retroactive adjustment of a previously bound unit in this harness.
-            if effective - newly and any(prices[line] != line_map[line]['unit_price'] for line in effective - newly):
-                return failure('prior_bound_adjustment_requires_transition')
-        elif rule['type'] != 'fixed_prices':
+        if rule['type'] not in ('unit_count_tier', 'fixed_prices'):
             return failure('invalid_artifact_semantics')
+    if effective and rule and rule['type'] == 'unit_count_tier':
+        thresholds = [row['minimum_units'] for row in rule['tiers']]
+        if len(thresholds) != len(set(thresholds)):
+            return failure('invalid_artifact_semantics')
+        count = sum(bool(out['effective_bound_line_ids']) for out in outputs)
+        choices = [row for row in rule['tiers'] if count >= row['minimum_units']]
+        if not choices:
+            return failure('commercial_basis_unsatisfied')
+        selected = max(choices, key=lambda row: row['minimum_units'])
+        prices = {line: selected['unit_price'] for line in sorted(effective)}
+    adjustments = []
+    if historical_prices:
+        if rule and rule['type'] == 'unit_count_tier':
+            prior_choices = [row for row in rule['tiers'] if len(prior_units) >= row['minimum_units']]
+            if not prior_choices:
+                return failure('commercial_basis_unsatisfied')
+            prior_authorized_price = max(prior_choices, key=lambda row: row['minimum_units'])['unit_price']
+        else:
+            prior_authorized_price = None
+        for line, previous_price in sorted(historical_prices.items()):
+            new_price = prices[line]
+            if previous_price == new_price:
+                continue
+            authorized = (rule and rule['type'] == 'unit_count_tier'
+                          and state['adjustment_authorization_verified']
+                          and previous_price == prior_authorized_price)
+            if not authorized:
+                return failure('prior_bound_adjustment_requires_transition')
+            adjustments.append(dict(line_id=line, previous_unit_price=previous_price,
+                                    new_unit_price=new_price,
+                                    authorization_source='accepted_unit_count_tier'))
     outcome = 'partially_bound' if effective and failed else 'bound' if effective else 'recognized_rejected'
     answer = dict(recognized=True, artifact_valid=True, bindable=bool(effective), outcome=outcome,
                   reason={'partially_bound': 'partial_binding', 'bound': 'bound', 'recognized_rejected': 'binding_unit_rejected'}[outcome],
@@ -170,4 +222,6 @@ def units(vector):
                   newly_bound_line_count=len(newly), failed_line_count=len(failed))
     if scope['contraction_rule'] and scope['contraction_rule']['type'] == 'unit_count_tier':
         answer['effective_unit_prices'] = prices
+    if adjustments:
+        answer['adjustments'] = adjustments
     return answer

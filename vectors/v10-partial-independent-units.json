@@ -147,7 +147,8 @@
         "line_ids": ["L01","L02","L03","L04","L05","L06","L07","L08","L09","L10"],
         "target_transaction": "checkout-10001",
         "attempt_id": "bind-award-10001-r4-U1-checkout-10001",
-        "reason": "bound"
+        "reason": "bound",
+        "effective_unit_prices": {"L01":1001,"L02":1002,"L03":1003,"L04":1004,"L05":1005,"L06":1006,"L07":1007,"L08":1008,"L09":1009,"L10":1010}
       },
       {
         "artifact_id": "award-10001",

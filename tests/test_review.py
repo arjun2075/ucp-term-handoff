@@ -14,6 +14,24 @@ class ReviewTests(unittest.TestCase):
         v['post_bind']['execution_attempt'].update(release_condition_met=None, release_resolved_at=None)
         return v
 
+    def v12_history(self):
+        v = self.fixture(12)
+        evaluated = evaluate(v)
+        prices = evaluated['effective_unit_prices']
+        history = []
+        for group, result in zip(v['binding_units'], evaluated['unit_results']):
+            record = dict(attempt_id=group['attempt_id'], artifact_id=v['term_artifact']['id'],
+                          revision=group['accepted_revision'], binding_unit_id=group['id'],
+                          line_ids=group['line_ids'], target_transaction=group['target_transaction'],
+                          reason=result['reason'])
+            if result['reason'] == 'bound':
+                record['effective_unit_prices'] = {
+                    line: prices[line] for line in result['effective_bound_line_ids']
+                }
+            history.append(record)
+        v['business_state']['attempt_history'] = history
+        return v
+
     def test_release_success_before_deadline(self):
         v = self.fixture(9)
         v['post_bind']['execution_attempt']['release_condition_met'] = True
@@ -37,9 +55,36 @@ class ReviewTests(unittest.TestCase):
 
     def test_explicit_deemed_acceptance_allocates_to_business(self):
         v = self.fixture(13)
+        v['post_bind']['terminal_outcome'] = None
         v['post_bind']['governing_semantics']['pending_at_deadline'] = 'deemed_acceptance_to_business'
         self.assertEqual('deemed_acceptance_to_business', evaluate_post_bind(v)['reason'])
         self.assertTrue(evaluate_post_bind(v)['executed'])
+
+    def test_deemed_acceptance_is_final_despite_late_failed_evidence(self):
+        v = self.fixture(13)
+        v['post_bind']['governing_semantics']['pending_at_deadline'] = 'deemed_acceptance_to_business'
+        v['post_bind']['terminal_outcome'].update(
+            status='executed', reason='deemed_acceptance_to_business', executed=True)
+        v['post_bind']['execution_attempt'].update(
+            at='2026-09-21T00:00:00Z', release_condition_met=False,
+            release_resolved_at='2026-09-19T00:00:00Z')
+        result = evaluate_post_bind(v)
+        self.assertEqual('deemed_acceptance_to_business', result['reason'])
+        self.assertTrue(result['executed'])
+
+    def test_return_to_buyer_is_final_despite_late_success_evidence(self):
+        v = self.fixture(13)
+        v['post_bind']['execution_attempt'].update(
+            at='2026-09-21T00:00:00Z', release_condition_met=True,
+            release_resolved_at='2026-09-19T00:00:00Z')
+        self.assertEqual('return_to_buyer', evaluate_post_bind(v)['reason'])
+
+    def test_available_pre_deadline_evidence_governs_before_terminal_disposition(self):
+        v = self.fixture(13)
+        v['post_bind']['terminal_outcome'] = None
+        v['post_bind']['execution_attempt'].update(
+            release_condition_met=True, release_resolved_at='2026-09-19T00:00:00Z')
+        self.assertEqual('release_condition_satisfied', evaluate_post_bind(v)['reason'])
 
     def test_transaction_clock_shorter_than_term_expiry(self):
         v = self.pending()
@@ -132,12 +177,27 @@ class ReviewTests(unittest.TestCase):
     def test_restock_same_attempt_remains_failed(self):
         v = self.fixture(10)
         v['binding_units'][3]['unavailable_line_ids'] = []
-        self.assertEqual('line_unavailable', evaluate(v)['unit_results'][3]['reason'])
+        result = evaluate(v)['unit_results'][3]
+        self.assertEqual('line_unavailable', result['reason'])
+        self.assertEqual('new_attempt_same_revision', result['retry_class'])
 
     def test_restock_new_attempt_same_revision_succeeds(self):
         v = self.fixture(14)
         self.assertEqual(4, v['term_artifact']['revision'])
         self.assertEqual('bound', evaluate(v)['unit_results'][3]['reason'])
+
+    def test_idempotency_conflict_requires_new_attempt_id_not_new_revision(self):
+        v = self.fixture(14)
+        v['binding_units'][0]['attempt_id'] = 'fresh-U1'
+        v['binding_units'][1]['attempt_id'] = v['business_state']['attempt_history'][0]['attempt_id']
+        conflicted = evaluate(v)
+        self.assertEqual('idempotency_conflict', conflicted['unit_results'][1]['reason'])
+        self.assertEqual('new_attempt_id_same_revision', conflicted['unit_results'][1]['retry_class'])
+        self.assertEqual(conflicted, evaluate(copy.deepcopy(v)))
+        v['binding_units'][1]['attempt_id'] = 'genuinely-fresh-U2'
+        recovered = evaluate(v)
+        self.assertEqual(4, v['binding_units'][1]['accepted_revision'])
+        self.assertEqual('bound', recovered['unit_results'][1]['reason'])
 
     def test_fresh_attempt_does_not_repair_structural_history(self):
         for reason in ('stale_revision','atomicity_violation','unauthorized_grouping','unauthorized_scope','invalid_artifact_semantics'):
@@ -149,7 +209,9 @@ class ReviewTests(unittest.TestCase):
     def test_current_stale_revision_blocks_new_attempt(self):
         v = self.fixture(14)
         v['business_state']['current_revision'] = 5
-        self.assertEqual('stale_revision', evaluate(v)['reason'])
+        result = evaluate(v)
+        self.assertEqual('stale_revision', result['reason'])
+        self.assertEqual('new_authorized_transition', result['recovery_action'])
 
     def test_expired_authorization_blocks_new_attempt(self):
         v = self.fixture(14)
@@ -161,7 +223,17 @@ class ReviewTests(unittest.TestCase):
         a,b = v['binding_units'][:2]
         a['line_ids'][0],b['line_ids'][0] = b['line_ids'][0],a['line_ids'][0]
         a['attempt_id'] = 'new-key'
-        self.assertEqual('unauthorized_grouping', evaluate(v)['reason'])
+        result = evaluate(v)
+        self.assertEqual('unauthorized_grouping', result['reason'])
+        self.assertEqual('new_authorized_transition', result['recovery_action'])
+
+    def test_atomicity_and_unauthorized_scope_require_authorized_transition(self):
+        atomicity = self.fixture(14)
+        atomicity['binding_units'][1]['line_ids'].append(atomicity['binding_units'][0]['line_ids'][0])
+        self.assertEqual('new_authorized_transition', evaluate(atomicity)['recovery_action'])
+        scope = self.fixture(14)
+        scope['binding_units'][0]['line_ids'][0] = 'outside-accepted-scope'
+        self.assertEqual('new_authorized_transition', evaluate(scope)['recovery_action'])
 
     def test_single_line_binding_unit_is_supported(self):
         v = self.fixture(12)
@@ -178,7 +250,13 @@ class ReviewTests(unittest.TestCase):
     def test_missing_history_fails_closed(self):
         v = self.fixture(14)
         v['business_state']['attempt_history_available'] = False
-        self.assertEqual('attempt_history_unavailable', evaluate(v)['reason'])
+        unavailable = evaluate(v)
+        self.assertEqual('attempt_history_unavailable', unavailable['reason'])
+        self.assertTrue(unavailable['artifact_valid'])
+        self.assertEqual('recognized_rejected', unavailable['outcome'])
+        self.assertEqual('same_attempt_later', unavailable['recovery_action'])
+        v['business_state']['attempt_history_available'] = True
+        self.assertEqual('bound', evaluate(v)['outcome'])
 
     def test_unverified_group_authorization_rejected(self):
         v = self.fixture(11)
@@ -188,15 +266,46 @@ class ReviewTests(unittest.TestCase):
     def test_duplicate_attempt_id_conflicts(self):
         v = self.fixture(14)
         v['binding_units'][1]['attempt_id'] = v['binding_units'][0]['attempt_id']
-        self.assertEqual('idempotency_conflict', evaluate(v)['reason'])
+        result = evaluate(v)
+        self.assertEqual('idempotency_conflict', result['reason'])
+        self.assertEqual('new_attempt_id_same_revision', result['recovery_action'])
 
     def test_group_target_cannot_change(self):
         v = self.fixture(14)
         v['binding_units'][0]['target_transaction'] = 'another-checkout'
         self.assertEqual('idempotency_conflict', evaluate(v)['reason'])
 
-    def test_prior_bound_units_cannot_be_repriced_by_later_contraction(self):
-        v = self.fixture(12)
-        g = v['binding_units'][0]
-        v['business_state']['attempt_history'] = [dict(attempt_id=g['attempt_id'], artifact_id=v['term_artifact']['id'], revision=4, binding_unit_id=g['id'], line_ids=g['line_ids'], target_transaction=g['target_transaction'], reason='bound')]
+    def test_v12_replay_uses_historical_bound_basis(self):
+        v = self.v12_history()
+        result = evaluate(v)
+        self.assertEqual('partially_bound', result['outcome'])
+        self.assertEqual({'L01':1200, 'L02':1200, 'L03':1200}, result['effective_unit_prices'])
+        self.assertNotEqual('prior_bound_adjustment_requires_transition', result['reason'])
+        self.assertEqual(result, evaluate(copy.deepcopy(v)))
+
+    def test_restock_surfaces_accepted_tier_adjustments(self):
+        v = self.v12_history()
+        v['binding_units'][3]['attempt_id'] = 'fresh-U4-after-restock'
+        v['binding_units'][3]['unavailable_line_ids'] = []
+        result = evaluate(v)
+        self.assertEqual('bound', result['outcome'])
+        self.assertEqual('bound', result['unit_results'][3]['reason'])
+        self.assertTrue(all(price == 1000 for price in result['effective_unit_prices'].values()))
+        self.assertEqual({'L01':1200},
+                         v['business_state']['attempt_history'][0]['effective_unit_prices'])
+        self.assertEqual(3, len(result['adjustments']))
+        self.assertTrue(all(a['previous_unit_price'] == 1200 and a['new_unit_price'] == 1000
+                            and a['authorization_source'] == 'accepted_unit_count_tier'
+                            for a in result['adjustments']))
+
+    def test_unaccepted_historical_basis_cannot_be_adjusted(self):
+        v = self.v12_history()
+        v['business_state']['attempt_history'][0]['effective_unit_prices']['L01'] = 1300
+        v['binding_units'][3]['attempt_id'] = 'fresh-U4-after-restock'
+        v['binding_units'][3]['unavailable_line_ids'] = []
         self.assertEqual('prior_bound_adjustment_requires_transition', evaluate(v)['reason'])
+
+    def test_missing_historical_commercial_basis_fails_closed(self):
+        v = self.v12_history()
+        del v['business_state']['attempt_history'][0]['effective_unit_prices']
+        self.assertEqual('commercial_basis_history_unavailable', evaluate(v)['reason'])
