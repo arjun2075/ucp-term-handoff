@@ -181,7 +181,9 @@
         "attempt_history": {"type":"array","items":{"$ref":"#/definitions/attemptRecord"}},
         "attempt_history_available": {"type":"boolean"},
         "binding_authorization_verified": {"type":"boolean"},
-        "adjustment_authorization_verified": {"type":"boolean"}
+        "adjustment_authorization_verified": {"type":"boolean"},
+        "commercial_basis_adjustments": {"type":"array","items":{"$ref":"#/definitions/adjustmentRecord"}},
+        "commercial_basis_history_available": {"type":"boolean"}
       }
     },
     "postBind": {
@@ -205,7 +207,7 @@
             "post_bind_valid_until": {"type":["string","null"],"format":"date-time"},
             "release_condition": {"type":["string","null"]},
             "pending_at_deadline": {"enum":[null,"return_to_buyer","deemed_acceptance_to_business"]},
-            "execution_invalidation_conditions": {"type":"array","items":{"type":"string","minLength":1}}
+            "execution_invalidation_conditions": {"type":"array","items":{"type":"string","minLength":1,"not":{"enum":["executed","execution_deadline_elapsed","release_condition_satisfied","release_condition_failed","release_condition_pending","commercial_terms_reinterpreted","return_to_buyer","deemed_acceptance_to_business","binding_not_successful","transaction_mismatch","invalid_lifecycle_timing","invalid_release_evidence","terminal_outcome_conflicts_with_accepted_disposition"]}}}
           },
           "allOf": [
             {
@@ -270,7 +272,8 @@
                 "invalid_lifecycle_timing",
                 "invalid_release_evidence",
                 "binding_not_successful",
-                "transaction_mismatch"
+                "transaction_mismatch",
+                "terminal_outcome_conflicts_with_accepted_disposition"
               ]
             },
             "executed": {"type":"boolean"},
@@ -391,12 +394,42 @@
     "adjustment": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["line_id","previous_unit_price","new_unit_price","authorization_source"],
+      "required": ["line_id","previous_unit_price","new_unit_price","authorization_source","triggering_attempt_id","tier_minimum_units","effective_unit_count","revision"],
       "properties": {
         "line_id": {"type":"string","minLength":1},
         "previous_unit_price": {"type":"integer","minimum":0},
         "new_unit_price": {"type":"integer","minimum":0},
-        "authorization_source": {"enum":["accepted_unit_count_tier"]}
+        "authorization_source": {"enum":["accepted_unit_count_tier"]},
+        "triggering_attempt_id": {"type":"string","minLength":1},
+        "tier_minimum_units": {"type":"integer","minimum":1},
+        "effective_unit_count": {"type":"integer","minimum":2},
+        "revision": {"type":"integer","minimum":1}
+      }
+    },
+    "adjustmentRecord": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["artifact_id","line_id","previous_unit_price","new_unit_price","authorization_source","triggering_attempt_id","tier_minimum_units","effective_unit_count","revision"],
+      "properties": {
+        "artifact_id": {"type":"string","minLength":1},
+        "line_id": {"type":"string","minLength":1},
+        "previous_unit_price": {"type":"integer","minimum":0},
+        "new_unit_price": {"type":"integer","minimum":0},
+        "authorization_source": {"enum":["accepted_unit_count_tier"]},
+        "triggering_attempt_id": {"type":"string","minLength":1},
+        "tier_minimum_units": {"type":"integer","minimum":1},
+        "effective_unit_count": {"type":"integer","minimum":2},
+        "revision": {"type":"integer","minimum":1}
+      }
+    },
+    "releaseAuthorizationBasis": {
+      "type": "object",
+      "additionalProperties": false,
+      "description": "Immutable historical basis that authorized a release terminal outcome at application time. 'resolved_at' is the release EVENT time, not the time evidence became observable to the evaluator; the harness models no observation time.",
+      "required": ["condition_met","resolved_at"],
+      "properties": {
+        "condition_met": {"type":"boolean"},
+        "resolved_at": {"type":"string","format":"date-time"}
       }
     },
     "terminalOutcome": {
@@ -404,6 +437,7 @@
       "additionalProperties": false,
       "required": ["applied_at","status","reason","executed","terms_preserved"],
       "properties": {
+        "release_authorization_basis": {"$ref":"#/definitions/releaseAuthorizationBasis"},
         "applied_at": {"type":"string","format":"date-time"},
         "status": {"enum":["release_condition_failed","post_bind_invalidated","executed","deadline_non_execution"]},
         "reason": {"type":"string","minLength":1},

@@ -129,6 +129,8 @@ non-execution and return/release of held value toward the buyer;
 `deemed_acceptance_to_business` means release toward the Business.
 These are modeled economic instructions, not actual payment movements.
 Additional dispositions need defined behavior before the harness accepts them.
+Accepted `execution_invalidation_conditions` are disjoint from the lifecycle
+reason namespace, so a declared condition can never be read as a lifecycle class.
 
 The deadline is exclusive. A resolution exactly at it is late and the declared
 pending disposition applies. An authenticated resolution before it governs if it
@@ -137,8 +139,85 @@ terminal outcome, including its application time and classification; later
 evaluation of the same bound transaction reproduces it. Late evidence may support
 a separate correction or dispute, but cannot rewrite the original allocation.
 Persisted deadline dispositions cannot claim an application time before the
-selected governing deadline.
-`release_resolved_at` records event time; future or pre-bind evidence rejects.
+selected governing deadline. A persisted terminal outcome is not replayed blindly:
+the disposition authorized by the accepted `pending_at_deadline` evidence is
+derived and the persisted record is validated against it. A record conflicting
+with that authorized disposition is not reproduced and does not execute; it
+returns `post_bind_invalidated` with a reason naming the conflict, which stays
+distinct from the absent-evidence case. Validation compares the complete
+authorized semantic outcome, namely status, reason, execution, and term
+preservation, not the reason label alone, so an outcome that is relabeled or has
+any single semantic field altered conflicts. Application time is validated
+separately as timing. A reason with no canonical authorized form, and a persisted
+deadline disposition for which the accepted evidence authorizes none, both
+conflict rather than replaying unchecked. Correction and dispute processing of
+that conflict remains outside this harness.
+
+Terminal finality governs replay. A persisted outcome is validated against its own
+classification, its application time, its persisted authorization basis where one
+is modeled, and the immutable accepted policy. It is never re-derived from a later
+`execution_attempt`, whose fields describe the current attempt rather than the
+evidence that authorized the stored outcome, so ordinary post-terminal state drift
+reproduces the historical outcome instead of invalidating it.
+
+Not every lifecycle result is eligible to become history. A result that describes
+why a request was refused, namely an unsuccessful binding, a mismatched
+transaction, incoherent lifecycle timing, incoherent release evidence, a replay
+conflict, and the non-terminal pending state, is never persisted as a terminal
+outcome even when it shares a status with a legitimate one. Every persisted
+record is a terminal fact that the replay validator accepts and reproduces under
+the same accepted policy and state. The rule is enforced on both sides: those
+results have no canonical historical class, so supplying one directly as a
+persisted outcome is rejected rather than replayed. The conflict reason in
+particular names a verdict about an invalid record and is never itself a valid
+historical classification.
+
+Initial authorization and replay validation are separate. When a terminal outcome
+is first produced, current authoritative evidence and the accepted policy must
+authorize it. On replay, the record is validated from its own persisted fields,
+the immutable accepted policy, and its persisted authorization basis where one is
+modeled; replay reads no field of the current `execution_attempt`.
+
+A release terminal outcome persists its authorization basis:
+`release_authorization_basis` records the release result (`condition_met`) and the
+release event time (`resolved_at`) that authorized it at application. Exactly the
+two release classes carry a basis; any other class presenting one is not a
+canonical record. Replay requires the basis to record the result its
+classification claims and to cite an event inside the bound-to-exclusive-deadline
+window that occurs no later than the outcome's application time. A missing, contradictory,
+or out-of-window basis fails closed. This is what allows a release outcome to be
+both authorized when created and final afterwards: later attempts may omit or
+contradict the release fields without rewriting it.
+
+Immutability is an assumption of the trusted Business-store model, not something
+this harness enforces. JSON Schema constrains a record's shape, never its
+mutation over time; history here is supplied as a trusted store snapshot. The
+basis is also not separately authenticated, so it is not independently
+tamper-proof: it is trusted to the same degree as the terminal record carrying it.
+
+`resolved_at` is the release EVENT time. The harness models no observation or
+delivery time, so the check establishes that the cited event occurs no later
+than application;
+it does not prove the evidence was available to the evaluator before application.
+That remains an explicit out-of-scope limitation rather than a guarantee.
+
+`terminal_outcome` is otherwise trusted as authoritative Business-store history.
+For classes that retain no authorization basis, namely ordinary execution,
+deadline elapse, declared invalidations and terms reinterpretation, replay checks
+canonical shape, policy compatibility and timing, then trusts the persisted
+classification. The boundary is precise: replay detects an internally
+inconsistent or policy/timing-incompatible persisted terminal record, including a
+release record whose classification disagrees with its own basis. It does not
+detect coherent replacement of the entire trusted terminal record together with
+its authorization provenance. A policy declaring a condition as
+execution-invalidating establishes that such an event could invalidate execution;
+it does not establish that the event occurred when the outcome was applied.
+Modeling provenance for those classes would make such substitution detectable and
+is left to implementation work.
+`release_resolved_at` records event time; future or pre-bind evidence rejects, so
+an event or application exactly at `bound_at` is valid while anything earlier is
+not. First-time evaluation and replay share that inclusive lower bound, and the
+governing deadline remains exclusive on both sides.
 Without a condition, execution at or after the deadline rejects. With a pending
 condition before the deadline it remains pending; at or after the deadline it
 cannot remain pending. `release_pending` is not terminal.
@@ -169,8 +248,126 @@ basis, new basis, and accepted authorization source. The accepted rule itself is
 sufficient authority; a new revision is not invented. Missing historical basis or
 an adjustment not covered by that rule fails closed.
 
+Each applied adjustment is appended to its own history rather than rewriting the
+bind-time price, and records the artifact/line, previous and new basis, triggering
+attempt, tier row, and revision. The current commercial basis is derived as the
+bind-time basis plus that applied history, and evaluation compares against the
+derived current basis, not the original bind-time price. An adjustment whose
+triggering attempt, tier row, and revision are already recorded is treated as
+already applied under that single canonical identity: it is neither rejected,
+re-persisted, nor re-emitted, provided the single persisted record for that
+identity carries the effect the transition authorizes; a same-key record with a
+different effect, or one identity recorded twice, is contradictory history. The
+chain is scoped to one artifact revision, so records belonging to another
+revision remain in the append-only store without joining this chain. Within the
+chain, every record must name a line the reconstructed bound basis contains: the
+producer emits an adjustment only for a line whose authoritative attempt history
+records it as bound, and that history is append-only across cycles just as the
+adjustment store is, so a same-revision record for any other line is orphaned
+history no lifecycle operation could have produced. No record may be a no-op
+either, since the producer skips a line whose basis already equals the authorized
+price. Those two rules also reject a repeated transition identity, which must
+either restate its predecessor's move or collapse into a no-op to chain at all. Every persisted record must also be consistent with producer output. Its tier
+row must exist in the accepted rule, its new basis must be that row's authorized
+price, its recorded `effective_unit_count` must select exactly that row as the
+highest accepted threshold satisfied, its `authorization_source` must be the
+accepted tier authority, and its triggering attempt must be either the attempt
+newly binding scope now or an authoritative successful bound attempt for the same
+revision. A structurally linkable record whose derived price happens to match
+today's target is rejected without that provenance.
+
+Three facts about the recorded count are checked separately, because none can be
+inferred from the others. Tier and price validation proves the count selects the
+economic effect the record states. The realized bound proves that count could
+actually have been reached by authoritative binding state, which prices cannot
+show: accepted tier prices need be neither unique nor monotonic, so a fabricated
+count may select exactly the price the true count selects. The minimum of two
+proves the producer had both previously-bound scope and a different newly-binding
+unit; that minimum is expressed statically in the schema and re-checked
+semantically, since a caller may bypass schema validation. Authoritative
+successful bound history is itself validated against the accepted binding
+authorization before anything consumes it, so realized effective units remain a
+subset of the accepted binding units. Occupying an attempt id and successfully
+binding accepted scope are separate facts: raw attempt history answers the first,
+so a malformed record sharing a current attempt id still yields the established
+request-level idempotency conflict, while only records matching the accepted
+authorization enter the validated projection every commercial and provenance
+consumer reads. Preserving that conflict never authenticates the conflicting
+record as a valid successful bind, and a malformed record the request does not
+replay remains structural invalidity.
+
+Stored adjustment history is validated on its own terms whenever a same-revision
+chain exists and both histories are available, using that validated projection
+rather than what the current request reconstructed. A stale, rejected or
+idempotency-conflicting request therefore neither hides genuinely corrupt history
+nor makes valid history look corrupt; it simply returns its own request-level
+outcome. Request-relative state still decides which units are already bound or
+newly binding and whether a new transition is emitted.
+
+Where the current transition is partially persisted, the request does carry
+enough information to check it. One evaluation may newly bind several units, so
+the count a record may claim is bounded by the union of validated historical
+binding units and every unit this evaluation makes effective, not by a fixed
+increment. The only in-flight trigger a record may cite is the attempt the
+producer would itself select, so an already-bound, stale or rejected unit cannot
+supply one.
+
+That union is the whole of what corroborates a count. The accepted scope is never
+substituted for it: the artifact's size says what could theoretically exist, not
+what authoritative state has established. When an evaluation makes no unit
+effective, the union is validated history alone, so a record claiming a count
+history has not reached fails closed even though the artifact is large enough to
+hold it. A transition whose adjustment was persisted but whose bound records were
+not, and which no replay can reproduce, is therefore rejected rather than trusted.
+
+An authoritative successful bound record carries the accepted binding unit's
+identity, its exact line membership, the expected target transaction, and an
+effective-price map whose key set is exactly those bound lines, so every consumer
+may treat that map as the authoritative bind-time basis for that scope. The
+accepted tier rule must also name each threshold once; that is a property of the
+accepted policy, checked whether or not the current request exercises pricing.
+
+Every record in a same-revision chain is checked against the authoritative
+bind-time basis, independent of what the current request reconstructed: its line
+must exist in that basis, it must not be a no-op, and its previous basis must
+equal the running basis immediately before it. A cited trigger must be either a
+validated authoritative successful binding attempt or the in-flight trigger the
+current transition selects; having no in-flight trigger is not permission for an
+unknown one. Whether a stored chain is orphaned is
+judged from that authoritative history rather than from the current request, so a
+stale or conflicting request cannot make valid stored history look corrupt. The recorded count must also never decrease across
+append-only history, since no unbind is modelled, and stay consistent across every
+record sharing one triggering attempt, which cannot claim two transition contexts,
+and conversely one effective count identifies one triggering attempt, since a
+single adjustment-producing evaluation chooses one of each. Several line
+adjustments from that transition share both. Counts need not be contiguous; an
+evaluation may legitimately jump from one to three.
+A record matching the transition being replayed must record that transition's own
+count, even where two counts would select the same tier at the same price.
+
+Historical adjustment validation establishes structural, tier-selection, price,
+trigger-existence, and cross-record transition-context consistency. The association between a historical trigger
+attempt and the transition count it records is trusted because attempt ordering
+is not retained. Re-pointing a record to a different real successful attempt
+whose transition context is unchanged is therefore not detectable, and adjustment
+history is not fully independently reconstructed producer output. Derivation consumes authoritative history in its
+recorded order and requires each adjustment to link to the running basis; history
+is never sorted or reordered to repair a broken chain. History that is present but
+cannot form a valid append-only chain is immutable structural invalidity rather
+than a transient outage, so it fails closed as an invalid artifact projection and
+is not reported as retryable. A current
+basis that already equals the authorized price requires no transition. Missing
+authoritative commercial-basis history, meaning history that cannot currently be
+obtained, fails closed exactly as an unavailable attempt history does and stays
+retryable, without implying an invalid artifact or a new authorized transition;
+history that exists and contradicts either the bound scope or its own chain is
+separate evidence of invalidity.
+
 The Business maintains attempt history keyed by `attempt_id`, separate from
-artifact identity/revision. Each record binds unit membership and target, and a
+artifact identity/revision. At most one successful record may exist for a given
+binding identity, since accepted scope cannot bind twice; two such records are
+corrupt history rather than idempotent replay. Each record binds unit membership
+and target, and a
 successful record also binds its effective commercial basis. Replaying an attempt
 preserves its recorded success/failure. Recovery follows ownership: an
 `idempotency_conflict` requires a new attempt id under the same valid revision;

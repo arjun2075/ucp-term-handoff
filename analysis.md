@@ -150,7 +150,7 @@ grouping, and prior successful scope.
 
 Schema validation applies to all vectors; complete matrix output is compared
 verbatim with this document. Legacy hashes and attribution hygiene remain guarded.
-Final verification: 70/70 tests pass, all 14 vectors validate, all 16 JSON files
+Final verification: 190/190 tests pass, all 14 vectors validate, all 16 JSON files
 parse, the Draft 7 schema validates, V1–V7 hashes are unchanged, and
 `git diff --check` passes. The semantic and adversarial audit checks are in
 `tests/test_review.py`; the original regression checks remain in `tests/test_vectors.py`.
