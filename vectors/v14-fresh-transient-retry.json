@@ -1,10 +1,12 @@
 {
-  "id": "V10",
-  "title": "Forty-line award partially binds across independent units",
+  "id": "V14",
+  "title": "Fresh attempt after restock succeeds under the same accepted revision",
   "timeline": [
     {"at":"2026-09-12T09:00:00Z","actor":"business","event":"forty_line_award_issued","revision":4},
     {"at":"2026-09-12T09:30:00Z","actor":"buyer","event":"award_accepted","revision":4},
-    {"at":"2026-09-12T10:00:00Z","actor":"platform","event":"binding_units_submitted_with_one_retry","revision":4}
+    {"at":"2026-09-12T09:40:00Z","actor":"business","event":"U1_bound_and_U4_attempt_A_failed_unavailable","revision":4},
+    {"at":"2026-09-12T09:50:00Z","actor":"business","event":"U4_restocked_without_commercial_revision","revision":4},
+    {"at":"2026-09-12T10:00:00Z","actor":"platform","event":"fresh_U4_attempt_B_and_U1_replay","revision":4}
   ],
   "term_artifact": {
     "id": "award-10001",
@@ -222,24 +224,24 @@
       "line_ids": ["L39","L40"],
       "atomicity_mode": "all_or_nothing",
       "target_transaction": "checkout-10001",
-      "unavailable_line_ids": ["L39","L40"],
+      "unavailable_line_ids": [],
       "expected": {
         "binding_unit_id": "U4",
-        "result": "binding_unit_rejected",
-        "reason": "line_unavailable",
-        "effective_bound_line_ids": [],
-        "newly_bound_line_ids": [],
-        "retry_class": "new_attempt_same_revision"
+        "result": "bound",
+        "reason": "bound",
+        "effective_bound_line_ids": ["L39","L40"],
+        "newly_bound_line_ids": ["L39","L40"],
+        "retry_class": "already_bound"
       },
-      "attempt_id": "bind-award-10001-r4-U4-checkout-10001"
+      "attempt_id": "fresh-U4-after-restock"
     }
   ],
   "expected": {
     "recognized": true,
     "artifact_valid": true,
     "bindable": true,
-    "outcome": "partially_bound",
-    "reason": "partial_binding",
+    "outcome": "bound",
+    "reason": "bound",
     "unit_results": [
       {
         "binding_unit_id": "U1",
@@ -267,28 +269,20 @@
       },
       {
         "binding_unit_id": "U4",
-        "result": "binding_unit_rejected",
-        "reason": "line_unavailable",
-        "effective_bound_line_ids": [],
-        "newly_bound_line_ids": [],
-        "retry_class": "new_attempt_same_revision"
+        "result": "bound",
+        "reason": "bound",
+        "effective_bound_line_ids": ["L39","L40"],
+        "newly_bound_line_ids": ["L39","L40"],
+        "retry_class": "already_bound"
       }
     ],
-    "effective_bound_line_count": 38,
-    "newly_bound_line_count": 28,
-    "failed_line_count": 2
+    "effective_bound_line_count": 40,
+    "newly_bound_line_count": 30,
+    "failed_line_count": 0
   },
   "model_requirements": {
-    "opaque_reference": {
-      "requires": ["authoritative_resolution","binding_unit_results","binding_unit_idempotency"],
-      "expected_verdict": "AMBIGUOUS",
-      "rationale": "The Business can resolve each group, but an opaque reference alone does not expose grouped partial results or retry identity."
-    },
-    "portable_artifact": {
-      "requires": ["binding_unit_results","binding_unit_idempotency","atomicity_visibility"],
-      "expected_verdict": "AMBIGUOUS",
-      "rationale": "Groups are portable and explicit, but target-scoped unit idempotency still needs a binding protocol."
-    }
+    "opaque_reference": {"requires":["attempt_history"],"expected_verdict":"AMBIGUOUS","rationale":"Fresh attempts and authorization revisions need separate authoritative state."},
+    "portable_artifact": {"requires":["attempt_history"],"expected_verdict":"AMBIGUOUS","rationale":"Fresh attempts and authorization revisions need separate authoritative state."}
   },
-  "invariants": ["I2","I3","I12","I16","I17","I18","I19"]
+  "invariants": ["I2","I18","I19","I23"]
 }
