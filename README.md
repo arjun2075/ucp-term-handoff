@@ -13,6 +13,8 @@ This is an analysis harness, not a proposed UCP schema or capability. Its JSON S
 - `models/model-capabilities.json` — declared capabilities used by the model scorer.
 - `vectors/*.json` — fourteen executable scenarios; V1–V7 cover handoff, V8–V11 lifecycle and binding units, and V12–V14 authorized contraction, deadline disposition, and fresh retries.
 - `tests/test_vectors.py` — schema validation, semantic evaluator, model scorer, and consistency audits.
+- `docs/ucp-845-architecture-decision.md` — decision-ready Option B vs C comparison for [#845](https://github.com/Universal-Commerce-Protocol/ucp/issues/845), with exact case boundaries and evidence limitations.
+- `tests/test_architecture_decision_845.py` — two additional negative-test cases (with controls) derived from existing frozen vectors; illustrative analysis only.
 
 ## Run
 
