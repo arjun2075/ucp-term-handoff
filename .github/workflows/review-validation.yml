@@ -1,0 +1,27 @@
+name: Term-handoff review harness
+
+on:
+  pull_request:
+  push:
+    branches:
+      - main
+      - arjun/845-architecture-decision-vectors
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  harness:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Install test dependency
+        run: python -m pip install 'jsonschema>=4,<5'
+      - name: Run all review and decision tests
+        run: python -m unittest discover -s tests -v
+      - name: Regenerate harness model matrix
+        run: python tests/test_vectors.py --matrix

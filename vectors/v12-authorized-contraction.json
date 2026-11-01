@@ -1,0 +1,160 @@
+{
+  "id": "V12",
+  "title": "Partial binding applies a previously authorized cross-unit volume tier",
+  "timeline": [
+    {"at":"2026-09-12T09:00:00Z","actor":"business","event":"tier_rule_authorized","revision":4},
+    {"at":"2026-09-12T09:30:00Z","actor":"buyer","event":"tier_table_accepted","revision":4}
+  ],
+  "term_artifact": {
+    "id": "award-10001",
+    "revision": 4,
+    "issuer": {"id":"business-shopware-1","role":"business"},
+    "authorized_by": "business-shopware-1",
+    "buyer_scope": "buyer-acme",
+    "acceptance": {
+      "state": "awarded",
+      "accepted_by": "buyer-acme",
+      "accepted_at": "2026-09-12T09:30:00Z",
+      "accepted_revision": 4,
+      "provenance": "buyer accepted four independently bindable award units"
+    },
+    "expires_at": "2026-09-18T00:00:00Z",
+    "commitment": {"type":"accepted_revalidate","invalidation_conditions":[]},
+    "currency": "USD",
+    "lines": [
+      {"line_id":"L01","item_id":"SKU-01","quantity":1,"unit_price":1000},
+      {"line_id":"L02","item_id":"SKU-02","quantity":1,"unit_price":1000},
+      {"line_id":"L03","item_id":"SKU-03","quantity":1,"unit_price":1000},
+      {"line_id":"L04","item_id":"SKU-04","quantity":1,"unit_price":1000}
+    ],
+    "commercial_terms": ["Accepted unit-count tier: four units at 1000; one to three at 1200"],
+    "binding_authorization": {
+      "groups": [
+        {"id":"U1","line_ids":["L01"],"atomicity_mode":"all_or_nothing"},
+        {"id":"U2","line_ids":["L02"],"atomicity_mode":"all_or_nothing"},
+        {"id":"U3","line_ids":["L03"],"atomicity_mode":"all_or_nothing"},
+        {"id":"U4","line_ids":["L04"],"atomicity_mode":"all_or_nothing"}
+      ],
+      "contraction_rule": {"type":"unit_count_tier","tiers":[{"minimum_units":1,"unit_price":1200},{"minimum_units":4,"unit_price":1000}]}
+    }
+  },
+  "binding_request": {
+    "at": "2026-09-12T10:00:00Z",
+    "target": "checkout",
+    "artifact_id": "award-10001",
+    "revision": 4,
+    "issuer": {"id":"business-shopware-1","role":"business"},
+    "buyer": "buyer-acme",
+    "acceptance_state": "awarded",
+    "accepted_revision": 4,
+    "currency": "USD",
+    "lines": [
+      {"line_id":"L01","item_id":"SKU-01","quantity":1,"unit_price":1000},
+      {"line_id":"L02","item_id":"SKU-02","quantity":1,"unit_price":1000},
+      {"line_id":"L03","item_id":"SKU-03","quantity":1,"unit_price":1000},
+      {"line_id":"L04","item_id":"SKU-04","quantity":1,"unit_price":1000}
+    ],
+    "commercial_terms": ["Accepted unit-count tier: four units at 1000; one to three at 1200"],
+    "target_transaction": "checkout-10001"
+  },
+  "business_state": {
+    "artifact_known": true,
+    "artifact_authentic": true,
+    "issuer_authorized": true,
+    "current_revision": 4,
+    "origin_available": true,
+    "revalidation_passes": true,
+    "revalidation_reason": null,
+    "active_invalidation_conditions": [],
+    "attempt_history": [],
+    "attempt_history_available": true,
+    "binding_authorization_verified": true,
+    "adjustment_authorization_verified": true
+  },
+  "binding_units": [
+    {
+      "id": "U1",
+      "line_ids": ["L01"],
+      "atomicity_mode": "all_or_nothing",
+      "accepted_revision": 4,
+      "attempt_id": "tier-attempt-0",
+      "target_transaction": "checkout-10001",
+      "unavailable_line_ids": [],
+      "expected": {"binding_unit_id":"U1","result":"bound","reason":"bound","effective_bound_line_ids":["L01"],"newly_bound_line_ids":["L01"],"retry_class":"already_bound"}
+    },
+    {
+      "id": "U2",
+      "line_ids": ["L02"],
+      "atomicity_mode": "all_or_nothing",
+      "accepted_revision": 4,
+      "attempt_id": "tier-attempt-1",
+      "target_transaction": "checkout-10001",
+      "unavailable_line_ids": [],
+      "expected": {"binding_unit_id":"U2","result":"bound","reason":"bound","effective_bound_line_ids":["L02"],"newly_bound_line_ids":["L02"],"retry_class":"already_bound"}
+    },
+    {
+      "id": "U3",
+      "line_ids": ["L03"],
+      "atomicity_mode": "all_or_nothing",
+      "accepted_revision": 4,
+      "attempt_id": "tier-attempt-2",
+      "target_transaction": "checkout-10001",
+      "unavailable_line_ids": [],
+      "expected": {"binding_unit_id":"U3","result":"bound","reason":"bound","effective_bound_line_ids":["L03"],"newly_bound_line_ids":["L03"],"retry_class":"already_bound"}
+    },
+    {
+      "id": "U4",
+      "line_ids": ["L04"],
+      "atomicity_mode": "all_or_nothing",
+      "accepted_revision": 4,
+      "attempt_id": "tier-attempt-3",
+      "target_transaction": "checkout-10001",
+      "unavailable_line_ids": ["L04"],
+      "expected": {
+        "binding_unit_id": "U4",
+        "result": "binding_unit_rejected",
+        "reason": "line_unavailable",
+        "effective_bound_line_ids": [],
+        "newly_bound_line_ids": [],
+        "retry_class": "new_attempt_same_revision"
+      }
+    }
+  ],
+  "expected": {
+    "recognized": true,
+    "artifact_valid": true,
+    "bindable": true,
+    "outcome": "partially_bound",
+    "reason": "partial_binding",
+    "unit_results": [
+      {"binding_unit_id":"U1","result":"bound","reason":"bound","effective_bound_line_ids":["L01"],"newly_bound_line_ids":["L01"],"retry_class":"already_bound"},
+      {"binding_unit_id":"U2","result":"bound","reason":"bound","effective_bound_line_ids":["L02"],"newly_bound_line_ids":["L02"],"retry_class":"already_bound"},
+      {"binding_unit_id":"U3","result":"bound","reason":"bound","effective_bound_line_ids":["L03"],"newly_bound_line_ids":["L03"],"retry_class":"already_bound"},
+      {
+        "binding_unit_id": "U4",
+        "result": "binding_unit_rejected",
+        "reason": "line_unavailable",
+        "effective_bound_line_ids": [],
+        "newly_bound_line_ids": [],
+        "retry_class": "new_attempt_same_revision"
+      }
+    ],
+    "effective_bound_line_count": 3,
+    "newly_bound_line_count": 3,
+    "failed_line_count": 1,
+    "effective_unit_prices": {"L01":1200,"L02":1200,"L03":1200}
+  },
+  "model_requirements": {
+    "opaque_reference": {
+      "requires": ["authorized_adjustment"],
+      "expected_verdict": "AMBIGUOUS",
+      "rationale": "The carrier needs verified authorization covering cross-unit recomputation."
+    },
+    "portable_artifact": {
+      "requires": ["authorized_adjustment"],
+      "expected_verdict": "AMBIGUOUS",
+      "rationale": "The carrier needs verified authorization covering cross-unit recomputation."
+    }
+  },
+  "invariants": ["I16","I17","I18","I21","I23"]
+}

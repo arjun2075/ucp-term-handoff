@@ -7,7 +7,7 @@ The statements below are **candidate invariants derived from current implementat
 - **Term artifact**: durable output of a quote, RFQ, negotiation, award, or other term-formation mechanism.
 - **Binding**: the Business evaluates that artifact and returns authoritative Cart/Checkout state or a classified rejection.
 - **Bound transaction**: authoritative Cart/Checkout state that records a successful binding. It is not necessarily executed, completed, settled, or released.
-- **Binding unit / atomicity group**: one or more accepted lines whose commercial dependencies are evaluated together. Partial success is permitted across independent units, not by silently splitting a unit.
+- **Binding unit / atomicity group**: one or more accepted lines that bind atomically. Fulfillment-separable units may share commercial dependencies governed by an authorized contraction rule; no unit can be silently split.
 - **Execution/release boundary**: the declared event at which the transaction completes, value moves, settlement occurs, or a conditional obligation is released.
 - **Recognized**: the Business can resolve or authenticate the artifact. Recognition does not imply that it is valid, executable, or authoritative.
 - **Transaction authority**: the Business remains authoritative for creation and mutation of its UCP Cart/Checkout. A term artifact only carries its declared commercial authority within its accepted scope.
@@ -50,15 +50,18 @@ Binding success answers whether authoritative transaction state was created. It 
 | I11 | Under this harness's modeled `business_firm` semantics, a Business MUST NOT arbitrarily invalidate its commitment during the validity window. | Rejection is allowed only for an explicitly declared invalidation condition. This is a candidate semantic, not an existing UCP rule. |
 | I12 | Binding MUST be deterministic for a fixed artifact revision, request, Business state, and evaluation time. | Replays under identical inputs yield the same classification and do not select another revision. |
 | I13 | Binding and execution MUST be modeled as distinct lifecycle points when a holding period exists. | A bound transaction may be pending, executed, released, or explicitly non-executable. |
-| I14 | Post-bind semantics MUST state whether commercial authority survives, transfers into transaction state, or remains conditional until execution. | State drift cannot silently choose the authority model. |
-| I15 | The relationship between term expiry and transaction lifetime MUST be explicit. | The rule may transfer authority at bind, continue term expiry, establish a separate deadline, or use conditional release; ambiguity is invalid. |
+| I14 | Execution deadline and optional release condition MUST be independent, explicitly authorized policies. | Every release path evaluates the selected clock; condition presence cannot bypass it. |
+| I15 | Every modeled execution path MUST select term expiry, transaction lifetime, or an explicit post-bind deadline. | The selected timestamp is enforced, including `transaction.valid_until` when selected. |
 | I16 | Scope contraction MUST NOT be silent. | Omitted accepted scope is rejected or reported as an explicit failed binding unit. |
 | I17 | Partial success MUST identify independent binding units and their results. | Artifact-wide success cannot hide failed units; artifact-wide failure need not discard successful independent units. |
-| I18 | Cross-line commercial dependencies MUST have declared atomicity semantics. | A volume, bundle, minimum, freight, or threshold group binds as declared or rejects explicitly. |
-| I19 | Retry MUST be idempotent at binding granularity. | Replay identity covers artifact, revision, binding unit, its lines, and target transaction; successful units are not duplicated, group membership cannot move, and a prior failure cannot become success without a new authorized transition. |
-| I20 | Conditional release MUST preserve agreed commercial terms. | Intermediate drift or a failed release condition cannot silently reprice; non-release is explicit. |
+| I18 | Cross-line dependencies MUST have declared atomicity and, where units are separable, authorized contraction semantics. | An atomic unit binds whole or rejects; cross-unit commercial conditions follow I21. |
+| I19 | Attempt identity MUST be separate from accepted artifact revision, and successful history MUST preserve the effective commercial basis of bound scope. | Same-attempt replay preserves the recorded result and price basis; successful scope cannot bind twice, even under a fresh attempt. |
+| I20 | Conditional release MUST preserve agreed commercial terms. | Intermediate drift and release disposition cannot silently reprice. |
+| I21 | Cross-unit contraction and later adjustment MUST use a deterministic rule covered by accepted Business authorization; changes to already-bound scope MUST be explicit. | Fixed prices, accepted tiers, or a declared minimum are permissible; accepted tier changes emit adjustments against historical basis, while missing, unverifiable, or uncovered authority fails closed. |
+| I22 | Pending release at the governing deadline MUST have an explicit authorized disposition that is final once applied. | Buyer return/non-execution and deemed acceptance toward the Business are separate economic choices; neither is a default, and late evidence cannot rewrite the allocated outcome. |
+| I23 | Retry/recovery behavior MUST identify who or what can make progress while preserving authorized unit composition. | Attempt-id conflicts require a new id under the same revision, availability drift permits a fresh attempt, history-store outage permits the same attempt later, and structural/authorization failures require a new authorized transition. |
 
-I13–I20 are candidate semantics prompted by Weston's lifecycle and partial-binding review. They do not revise I1–I12 or claim current UCP requirements.
+I13–I23 are candidate semantics prompted by Weston's lifecycle and partial-binding review. They do not revise I1–I12 or claim current UCP requirements.
 
 ## Candidate property audit
 
@@ -87,6 +90,7 @@ I13–I20 are candidate semantics prompted by Weston's lifecycle and partial-bin
 | transaction lifetime | invariant at the execution boundary | It is a distinct clock from term expiry even when policy aligns their deadlines. |
 | release and execution invalidation conditions | semantic invariant when used | Conditions must be declared and produce explicit outcomes; exact condition vocabulary is implementation-specific. |
 | binding-unit identity, revision, included lines, atomicity, result, and replay identity | invariant for partial binding | Group composition and key format remain implementation-specific. |
+| effective commercial basis of successfully bound scope | invariant for replay and later adjustment | Authoritative history must record enough per-line/unit basis to compare later accepted rules without guessing from list price. |
 | negotiation messages, status names, polling interval, internal approvals, tax display decomposition | implementation-specific | Useful to the formation mechanism, but not necessary at the handoff if acceptance provenance and semantic scope survive. |
 
 ## Authority model
@@ -111,22 +115,274 @@ These labels belong to the harness. A future protocol could encode the distincti
 
 Only the Business creates or mutates the authoritative Cart/Checkout. Successful binding means the Business returns transaction state that reflects no more than the artifact's authorized scope. It does not allow the artifact holder to write prices, totals, fulfillment, or other state directly.
 
-## Dual clocks and post-bind authority
+## Execution deadline and optional release
 
-Term expiry and transaction lifetime are different clocks. The harness does not select a universal relationship. A binding profile must explicitly choose semantics such as:
+A verified accepted policy selects exactly one execution bound: `term_expiry`,
+`transaction_lifetime`, or `explicit_post_bind_deadline`. The other timestamps
+do not silently acquire veto authority. Selecting transaction lifetime models the
+explicit transfer of commercial authority at bind; selecting term expiry retains
+the original limit. All modeled paths are bounded.
 
-- authority transfers into the bound transaction at `bound_at`;
-- original term expiry continues to constrain execution;
-- a separate post-bind deadline controls execution; or
-- commercial terms lock while execution/value movement waits on a release condition.
+Independently, `release_condition` is null or an authorized condition.
+A condition requires `pending_at_deadline`: `return_to_buyer` means explicit
+non-execution and return/release of held value toward the buyer;
+`deemed_acceptance_to_business` means release toward the Business.
+These are modeled economic instructions, not actual payment movements.
+Additional dispositions need defined behavior before the harness accepts them.
+Accepted `execution_invalidation_conditions` are disjoint from the lifecycle
+reason namespace, so a declared condition can never be read as a lifecycle class.
 
-The unsafe case is not any one choice; it is leaving the choice implicit. Any execution invalidation allowed after binding must be declared, must preserve the historical bound terms, and must return an explicit non-execution result rather than a repriced transaction.
+The deadline is exclusive. A resolution exactly at it is late and the declared
+pending disposition applies. An authenticated resolution before it governs if it
+is available before a terminal outcome is applied. The harness persists the first
+terminal outcome, including its application time and classification; later
+evaluation of the same bound transaction reproduces it. Late evidence may support
+a separate correction or dispute, but cannot rewrite the original allocation.
+Persisted deadline dispositions cannot claim an application time before the
+selected governing deadline. A persisted terminal outcome is not replayed blindly:
+the disposition authorized by the accepted `pending_at_deadline` evidence is
+derived and the persisted record is validated against it. A record conflicting
+with that authorized disposition is not reproduced and does not execute; it
+returns `post_bind_invalidated` with a reason naming the conflict, which stays
+distinct from the absent-evidence case. Validation compares the complete
+authorized semantic outcome, namely status, reason, execution, and term
+preservation, not the reason label alone, so an outcome that is relabeled or has
+any single semantic field altered conflicts. Application time is validated
+separately as timing. A reason with no canonical authorized form, and a persisted
+deadline disposition for which the accepted evidence authorizes none, both
+conflict rather than replaying unchecked. Correction and dispute processing of
+that conflict remains outside this harness.
 
-## Binding units and partial success
+Terminal finality governs replay. A persisted outcome is validated against its own
+classification, its application time, its persisted authorization basis where one
+is modeled, and the immutable accepted policy. It is never re-derived from a later
+`execution_attempt`, whose fields describe the current attempt rather than the
+evidence that authorized the stored outcome, so ordinary post-terminal state drift
+reproduces the historical outcome instead of invalidating it.
 
-A binding unit is a harness abstraction, not necessarily one line. Its membership is chosen by the commercial semantics: a single independent line may be one unit, while a volume tier, minimum order, bundle, shared freight basis, or threshold discount may require several lines in one unit. The initial vectors use `all_or_nothing` within a unit. They do not prescribe one grouping strategy across implementations.
+Not every lifecycle result is eligible to become history. A result that describes
+why a request was refused, namely an unsuccessful binding, a mismatched
+transaction, incoherent lifecycle timing, incoherent release evidence, a replay
+conflict, and the non-terminal pending state, is never persisted as a terminal
+outcome even when it shares a status with a legitimate one. Every persisted
+record is a terminal fact that the replay validator accepts and reproduces under
+the same accepted policy and state. The rule is enforced on both sides: those
+results have no canonical historical class, so supplying one directly as a
+persisted outcome is rejected rather than replayed. The conflict reason in
+particular names a verdict about an invalid record and is never itself a valid
+historical classification.
 
-Each unit records a group id, accepted revision, included line ids, atomicity mode, result, target transaction, and replay identity. Partial success is valid only across independent units. A failed unit remains visible; its lines are not silently dropped. Replay identity is logically scoped to artifact identity + revision + binding unit membership + target transaction, without prescribing a serialized key format. Replaying a prior failure reproduces that failure; success requires a new authorized state transition rather than reuse of the same attempt identity.
+Initial authorization and replay validation are separate. When a terminal outcome
+is first produced, current authoritative evidence and the accepted policy must
+authorize it. On replay, the record is validated from its own persisted fields,
+the immutable accepted policy, and its persisted authorization basis where one is
+modeled; replay reads no field of the current `execution_attempt`.
+
+A release terminal outcome persists its authorization basis:
+`release_authorization_basis` records the release result (`condition_met`) and the
+release event time (`resolved_at`) that authorized it at application. Exactly the
+two release classes carry a basis; any other class presenting one is not a
+canonical record. Replay requires the basis to record the result its
+classification claims and to cite an event inside the bound-to-exclusive-deadline
+window that occurs no later than the outcome's application time. A missing, contradictory,
+or out-of-window basis fails closed. This is what allows a release outcome to be
+both authorized when created and final afterwards: later attempts may omit or
+contradict the release fields without rewriting it.
+
+Immutability is an assumption of the trusted Business-store model, not something
+this harness enforces. JSON Schema constrains a record's shape, never its
+mutation over time; history here is supplied as a trusted store snapshot. The
+basis is also not separately authenticated, so it is not independently
+tamper-proof: it is trusted to the same degree as the terminal record carrying it.
+
+`resolved_at` is the release EVENT time. The harness models no observation or
+delivery time, so the check establishes that the cited event occurs no later
+than application;
+it does not prove the evidence was available to the evaluator before application.
+That remains an explicit out-of-scope limitation rather than a guarantee.
+
+`terminal_outcome` is otherwise trusted as authoritative Business-store history.
+For classes that retain no authorization basis, namely ordinary execution,
+deadline elapse, declared invalidations and terms reinterpretation, replay checks
+canonical shape, policy compatibility and timing, then trusts the persisted
+classification. The boundary is precise: replay detects an internally
+inconsistent or policy/timing-incompatible persisted terminal record, including a
+release record whose classification disagrees with its own basis. It does not
+detect coherent replacement of the entire trusted terminal record together with
+its authorization provenance. A policy declaring a condition as
+execution-invalidating establishes that such an event could invalidate execution;
+it does not establish that the event occurred when the outcome was applied.
+Modeling provenance for those classes would make such substitution detectable and
+is left to implementation work.
+`release_resolved_at` records event time; future or pre-bind evidence rejects, so
+an event or application exactly at `bound_at` is valid while anything earlier is
+not. First-time evaluation and replay share that inclusive lower bound, and the
+governing deadline remains exclusive on both sides.
+Without a condition, execution at or after the deadline rejects. With a pending
+condition before the deadline it remains pending; at or after the deadline it
+cannot remain pending. `release_pending` is not terminal.
+
+Declared execution invalidations and term preservation are checked independently.
+An ordinary drift event cannot invalidate a firm commitment unless authorized.
+The harness assumes release evidence and the bound policy are authenticated
+Business/transaction facts; it does not implement their trust transport.
+
+## Binding units, commercial coupling, and attempts
+
+Binding units remain the general abstraction; a one-line unit is a special case.
+The accepted artifact's `binding_authorization.groups` fixes membership and
+atomicity. Requests cannot split groups or move lines, even using new attempt ids.
+The harness implements all-or-nothing within a unit and partial success across
+units. Fulfillment independence does not imply commercial independence.
+
+An accepted `contraction_rule` makes the commercial relationship explicit:
+`fixed_prices` preserves prices; the small `unit_count_tier` example chooses
+the highest accepted minimum-unit threshold satisfied by effective bound units.
+It emits the resulting prices explicitly. No matching threshold rejects the
+commercial basis. A missing rule or failed adjustment verification rejects
+contracted scope. This table is an example fixture, not a general pricing language.
+Successful attempt history records the effective per-line prices at binding. If a
+later accepted tier changes what is owed on already-bound scope, the historical
+prices remain visible and the result emits explicit adjustments with previous
+basis, new basis, and accepted authorization source. The accepted rule itself is
+sufficient authority; a new revision is not invented. Missing historical basis or
+an adjustment not covered by that rule fails closed.
+
+Each applied adjustment is appended to its own history rather than rewriting the
+bind-time price, and records the artifact/line, previous and new basis, triggering
+attempt, tier row, and revision. The current commercial basis is derived as the
+bind-time basis plus that applied history, and evaluation compares against the
+derived current basis, not the original bind-time price. An adjustment whose
+triggering attempt, tier row, and revision are already recorded is treated as
+already applied under that single canonical identity: it is neither rejected,
+re-persisted, nor re-emitted, provided the single persisted record for that
+identity carries the effect the transition authorizes; a same-key record with a
+different effect, or one identity recorded twice, is contradictory history. The
+chain is scoped to one artifact revision, so records belonging to another
+revision remain in the append-only store without joining this chain. Within the
+chain, every record must name a line the reconstructed bound basis contains: the
+producer emits an adjustment only for a line whose authoritative attempt history
+records it as bound, and that history is append-only across cycles just as the
+adjustment store is, so a same-revision record for any other line is orphaned
+history no lifecycle operation could have produced. No record may be a no-op
+either, since the producer skips a line whose basis already equals the authorized
+price. Those two rules also reject a repeated transition identity, which must
+either restate its predecessor's move or collapse into a no-op to chain at all. Every persisted record must also be consistent with producer output. Its tier
+row must exist in the accepted rule, its new basis must be that row's authorized
+price, its recorded `effective_unit_count` must select exactly that row as the
+highest accepted threshold satisfied, its `authorization_source` must be the
+accepted tier authority, and its triggering attempt must be either the attempt
+newly binding scope now or an authoritative successful bound attempt for the same
+revision. A structurally linkable record whose derived price happens to match
+today's target is rejected without that provenance.
+
+Three facts about the recorded count are checked separately, because none can be
+inferred from the others. Tier and price validation proves the count selects the
+economic effect the record states. The realized bound proves that count could
+actually have been reached by authoritative binding state, which prices cannot
+show: accepted tier prices need be neither unique nor monotonic, so a fabricated
+count may select exactly the price the true count selects. The minimum of two
+proves the producer had both previously-bound scope and a different newly-binding
+unit; that minimum is expressed statically in the schema and re-checked
+semantically, since a caller may bypass schema validation. Authoritative
+successful bound history is itself validated against the accepted binding
+authorization before anything consumes it, so realized effective units remain a
+subset of the accepted binding units. Occupying an attempt id and successfully
+binding accepted scope are separate facts: raw attempt history answers the first,
+so a malformed record sharing a current attempt id still yields the established
+request-level idempotency conflict, while only records matching the accepted
+authorization enter the validated projection every commercial and provenance
+consumer reads. Preserving that conflict never authenticates the conflicting
+record as a valid successful bind, and a malformed record the request does not
+replay remains structural invalidity.
+
+Stored adjustment history is validated on its own terms whenever a same-revision
+chain exists and both histories are available, using that validated projection
+rather than what the current request reconstructed. A stale, rejected or
+idempotency-conflicting request therefore neither hides genuinely corrupt history
+nor makes valid history look corrupt; it simply returns its own request-level
+outcome. Request-relative state still decides which units are already bound or
+newly binding and whether a new transition is emitted.
+
+Where the current transition is partially persisted, the request does carry
+enough information to check it. One evaluation may newly bind several units, so
+the count a record may claim is bounded by the union of validated historical
+binding units and every unit this evaluation makes effective, not by a fixed
+increment. The only in-flight trigger a record may cite is the attempt the
+producer would itself select, so an already-bound, stale or rejected unit cannot
+supply one.
+
+That union is the whole of what corroborates a count. The accepted scope is never
+substituted for it: the artifact's size says what could theoretically exist, not
+what authoritative state has established. When an evaluation makes no unit
+effective, the union is validated history alone, so a record claiming a count
+history has not reached fails closed even though the artifact is large enough to
+hold it. A transition whose adjustment was persisted but whose bound records were
+not, and which no replay can reproduce, is therefore rejected rather than trusted.
+
+An authoritative successful bound record carries the accepted binding unit's
+identity, its exact line membership, the expected target transaction, and an
+effective-price map whose key set is exactly those bound lines, so every consumer
+may treat that map as the authoritative bind-time basis for that scope. The
+accepted tier rule must also name each threshold once; that is a property of the
+accepted policy, checked whether or not the current request exercises pricing.
+
+Every record in a same-revision chain is checked against the authoritative
+bind-time basis, independent of what the current request reconstructed: its line
+must exist in that basis, it must not be a no-op, and its previous basis must
+equal the running basis immediately before it. A cited trigger must be either a
+validated authoritative successful binding attempt or the in-flight trigger the
+current transition selects; having no in-flight trigger is not permission for an
+unknown one. Whether a stored chain is orphaned is
+judged from that authoritative history rather than from the current request, so a
+stale or conflicting request cannot make valid stored history look corrupt. The recorded count must also never decrease across
+append-only history, since no unbind is modelled, and stay consistent across every
+record sharing one triggering attempt, which cannot claim two transition contexts,
+and conversely one effective count identifies one triggering attempt, since a
+single adjustment-producing evaluation chooses one of each. Several line
+adjustments from that transition share both. Counts need not be contiguous; an
+evaluation may legitimately jump from one to three.
+A record matching the transition being replayed must record that transition's own
+count, even where two counts would select the same tier at the same price.
+
+Historical adjustment validation establishes structural, tier-selection, price,
+trigger-existence, and cross-record transition-context consistency. The association between a historical trigger
+attempt and the transition count it records is trusted because attempt ordering
+is not retained. Re-pointing a record to a different real successful attempt
+whose transition context is unchanged is therefore not detectable, and adjustment
+history is not fully independently reconstructed producer output. Derivation consumes authoritative history in its
+recorded order and requires each adjustment to link to the running basis; history
+is never sorted or reordered to repair a broken chain. History that is present but
+cannot form a valid append-only chain is immutable structural invalidity rather
+than a transient outage, so it fails closed as an invalid artifact projection and
+is not reported as retryable. A current
+basis that already equals the authorized price requires no transition. Missing
+authoritative commercial-basis history, meaning history that cannot currently be
+obtained, fails closed exactly as an unavailable attempt history does and stays
+retryable, without implying an invalid artifact or a new authorized transition;
+history that exists and contradicts either the bound scope or its own chain is
+separate evidence of invalidity.
+
+The Business maintains attempt history keyed by `attempt_id`, separate from
+artifact identity/revision. At most one successful record may exist for a given
+binding identity, since accepted scope cannot bind twice; two such records are
+corrupt history rather than idempotent replay. Each record binds unit membership
+and target, and a
+successful record also binds its effective commercial basis. Replaying an attempt
+preserves its recorded success/failure. Recovery follows ownership: an
+`idempotency_conflict` requires a new attempt id under the same valid revision;
+`line_unavailable` permits a fresh attempt under that revision;
+`attempt_history_unavailable` permits the same attempt later after service
+recovery; and structural/authorization failures require a new authorized
+transition. Already-bound units return no new scope even on a fresh attempt.
+Missing authoritative history fails closed without calling the artifact invalid.
+
+History is supplied as a trusted Business-store snapshot in this harness. Revision
+content is immutable and verification booleans attest the complete accepted
+group/rule projection, not merely a party name. A changed rule requires fresh
+authorization; tests that vary an accepted rule model different authorized inputs.
+Checking those attestations cryptographically, storing attempt results atomically,
+and coordinating simultaneous requests remain implementation work.
 
 ## Evaluation order
 
@@ -139,7 +395,7 @@ Each unit records a group id, accepted revision, included line ids, atomicity mo
    - `business_firm`: honor unless a declared invalidation condition is present.
 6. If binding units are present, evaluate each declared atomic group and return every unit result; do not infer per-line severability.
 7. Return authoritative Cart/Checkout state or a classified non-binding/partial result, correlated to artifact id and revision.
-8. During any holding period, apply the declared authority and dual-clock rule at the execution/release boundary.
+8. During any holding period, apply the selected execution deadline and independent release policy at the execution/release boundary.
 9. Execute/release without changing agreed terms, or return an explicit pending, failed-release, or post-bind-invalidated result.
 
 This order ensures a recognized Business rejection is not misreported as forgery or expiry, a firm commitment is not silently downgraded to advisory terms, and a successful bind is not mistaken for final execution.

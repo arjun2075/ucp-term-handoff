@@ -45,7 +45,7 @@ Portable post-bind rules can make authority, clocks, release conditions, and ato
 
 The vectors suggest—but do not require—a hybrid: portable, inspectable semantics plus a Business-authoritative reference/introspection path. The portable portion enables preflight, preservation, audit, cross-implementation transport, post-bind rule visibility, and atomic-group visibility. The Business reference supplies issuer authorization, current revision/revocation, and native conditions. Binding compares both and fails closed on disagreement.
 
-The hybrid inherits a synchronization problem: it needs an explicit rule for which facts are authoritative and what mismatch means. V8–V11 add further requirements rather than making the hybrid an automatic winner: an authoritative post-bind state machine, explicit dual-clock semantics, integrity-bound unit membership, and unit-granular idempotency. A reasonable experimental rule is that portable semantics are a content-bound snapshot, the Business record decides currentness and declared invalidation state, and any mismatch is a classified non-binding result rather than silent repair.
+The hybrid inherits a synchronization problem: it needs an explicit rule for which facts are authoritative and what mismatch means. V8–V14 add further requirements rather than making the hybrid an automatic winner: an authoritative post-bind state machine, explicit deadline-source and independent release semantics, integrity-bound unit membership, and unit-granular idempotency. A reasonable experimental rule is that portable semantics are a content-bound snapshot, the Business record decides currentness and declared invalidation state, and any mismatch is a classified non-binding result rather than silent repair.
 
 ## Origin-unavailable behavior
 
@@ -66,3 +66,20 @@ At release, origin unavailability is governed by the declared post-bind model. A
 | recognize already-bound units | Business-side unit deduplication required | Replay identity can travel but does not deduplicate itself | Same server-side requirement; reference helps locate prior state |
 
 No model handles V8–V10 without additional transaction-lifecycle or binding-operation semantics. Both can express V11 once the grouping is authoritative. The new cases narrow the experiment but do not select a universal carrier.
+
+## Second-review requirements across carriers
+
+| Concern | Opaque reference | Portable artifact | Derived hybrid |
+|---|---|---|---|
+| Deadline authority | Authoritative resolver/transaction retains selected clock | Bound policy must be authenticated, then enforced | Compare projection with authoritative policy; no automatic enforcement |
+| Release evaluator and deadline disposition | Business needs explicit event authority and economic disposition | Condition, event authority and disposition must survive normalization | Combines visibility and introspection but still requires release evidence |
+| Cross-unit adjustment | Resolver retains accepted rule | Rule and exact scope must be covered by issuer authorization | Can compare portable rule with native rule; disagreement rejects |
+| Pricing/freight normalization | Native semantics remain available | A lossy normalized rule must fail closed | Does not eliminate semantic loss; supported rule vocabulary still needed |
+| Attempt history | Business store can retain results | Portable attempt identity cannot replace a durable store | Reference can locate history; still needs atomic deduplication |
+| Origin unavailable on retry | Pending/fail closed if history or authorization cannot be established | Local artifact does not prove no previous success | Cached authoritative history needs explicit freshness guarantees |
+
+The scored model verdicts are representational assessments under declared capability
+assumptions, not measurements of separate production adapters. The same semantic
+evaluator is used throughout. A hybrid combines reference and portable strengths
+but all three need lifecycle policy, adjustment authorization, and durable attempt
+history. It is not uniquely preferred by V12–V14.

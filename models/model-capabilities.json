@@ -20,7 +20,10 @@
     "binding_unit_results": "AMBIGUOUS",
     "binding_unit_idempotency": "AMBIGUOUS",
     "atomicity_resolution": "PASS",
-    "atomicity_visibility": "FAIL"
+    "atomicity_visibility": "FAIL",
+    "authorized_adjustment": "AMBIGUOUS",
+    "deadline_disposition": "AMBIGUOUS",
+    "attempt_history": "AMBIGUOUS"
   },
   "portable_artifact": {
     "stable_identity": "PASS",
@@ -42,6 +45,9 @@
     "binding_unit_results": "PASS",
     "binding_unit_idempotency": "AMBIGUOUS",
     "atomicity_resolution": "AMBIGUOUS",
-    "atomicity_visibility": "PASS"
+    "atomicity_visibility": "PASS",
+    "authorized_adjustment": "AMBIGUOUS",
+    "deadline_disposition": "AMBIGUOUS",
+    "attempt_history": "AMBIGUOUS"
   }
 }

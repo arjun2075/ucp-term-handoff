@@ -2,36 +2,87 @@
   "id": "V8",
   "title": "Post-bind state drift invalidates execution under a declared rule",
   "timeline": [
-    {"at": "2026-09-12T09:00:00Z", "actor": "business", "event": "quote_issued", "revision": 1},
-    {"at": "2026-09-12T09:30:00Z", "actor": "buyer", "event": "quote_accepted", "revision": 1},
-    {"at": "2026-09-12T10:00:00Z", "actor": "business", "event": "checkout_bound", "revision": 1},
-    {"at": "2026-09-12T11:00:00Z", "actor": "business", "event": "inventory_allocation_changed", "revision": 1},
-    {"at": "2026-09-12T12:00:00Z", "actor": "execution_system", "event": "execution_attempted", "revision": 1}
+    {"at":"2026-09-12T09:00:00Z","actor":"business","event":"quote_issued","revision":1},
+    {"at":"2026-09-12T09:30:00Z","actor":"buyer","event":"quote_accepted","revision":1},
+    {"at":"2026-09-12T10:00:00Z","actor":"business","event":"checkout_bound","revision":1},
+    {"at":"2026-09-12T11:00:00Z","actor":"business","event":"inventory_allocation_changed","revision":1},
+    {"at":"2026-09-12T12:00:00Z","actor":"execution_system","event":"execution_attempted","revision":1}
   ],
   "term_artifact": {
-    "id": "quote-8001", "revision": 1,
-    "issuer": {"id": "business-shopware-1", "role": "business"},
-    "authorized_by": "business-shopware-1", "buyer_scope": "buyer-acme",
-    "acceptance": {"state": "accepted", "accepted_by": "buyer-acme", "accepted_at": "2026-09-12T09:30:00Z", "accepted_revision": 1, "provenance": "buyer accepted Business-authored revision 1"},
+    "id": "quote-8001",
+    "revision": 1,
+    "issuer": {"id":"business-shopware-1","role":"business"},
+    "authorized_by": "business-shopware-1",
+    "buyer_scope": "buyer-acme",
+    "acceptance": {
+      "state": "accepted",
+      "accepted_by": "buyer-acme",
+      "accepted_at": "2026-09-12T09:30:00Z",
+      "accepted_revision": 1,
+      "provenance": "buyer accepted Business-authored revision 1"
+    },
     "expires_at": "2026-09-15T00:00:00Z",
-    "commitment": {"type": "accepted_revalidate", "invalidation_conditions": []},
-    "currency": "USD", "lines": [{"line_id": "L1", "item_id": "SKU-A", "quantity": 10, "unit_price": 9000}],
+    "commitment": {"type":"accepted_revalidate","invalidation_conditions":[]},
+    "currency": "USD",
+    "lines": [{"line_id":"L1","item_id":"SKU-A","quantity":10,"unit_price":9000}],
     "commercial_terms": ["inventory must remain allocated through execution"]
   },
-  "binding_request": {"at": "2026-09-12T10:00:00Z", "target": "checkout", "artifact_id": "quote-8001", "revision": 1, "issuer": {"id": "business-shopware-1", "role": "business"}, "buyer": "buyer-acme", "acceptance_state": "accepted", "accepted_revision": 1, "currency": "USD", "lines": [{"line_id": "L1", "item_id": "SKU-A", "quantity": 10, "unit_price": 9000}], "commercial_terms": ["inventory must remain allocated through execution"]},
-  "business_state": {"artifact_known": true, "artifact_authentic": true, "issuer_authorized": true, "current_revision": 1, "origin_available": true, "revalidation_passes": true, "revalidation_reason": null, "active_invalidation_conditions": []},
+  "binding_request": {
+    "at": "2026-09-12T10:00:00Z",
+    "target": "checkout",
+    "artifact_id": "quote-8001",
+    "revision": 1,
+    "issuer": {"id":"business-shopware-1","role":"business"},
+    "buyer": "buyer-acme",
+    "acceptance_state": "accepted",
+    "accepted_revision": 1,
+    "currency": "USD",
+    "lines": [{"line_id":"L1","item_id":"SKU-A","quantity":10,"unit_price":9000}],
+    "commercial_terms": ["inventory must remain allocated through execution"],
+    "target_transaction": "checkout-8001"
+  },
+  "business_state": {
+    "artifact_known": true,
+    "artifact_authentic": true,
+    "issuer_authorized": true,
+    "current_revision": 1,
+    "origin_available": true,
+    "revalidation_passes": true,
+    "revalidation_reason": null,
+    "active_invalidation_conditions": []
+  },
   "post_bind": {
     "bound_at": "2026-09-12T10:00:00Z",
-    "transaction": {"id": "checkout-8001", "valid_until": "2026-09-20T00:00:00Z"},
-    "governing_semantics": {"mode": "post_bind_deadline", "post_bind_valid_until": "2026-09-13T00:00:00Z", "release_condition": null, "execution_invalidation_conditions": ["inventory_allocation_changed"]},
-    "events": [{"at": "2026-09-12T11:00:00Z", "event": "inventory_allocation_changed"}],
-    "execution_attempt": {"at": "2026-09-12T12:00:00Z", "release_condition_met": null, "active_invalidation_conditions": ["inventory_allocation_changed"], "terms_unchanged": true},
-    "expected": {"status": "post_bind_invalidated", "reason": "inventory_allocation_changed", "executed": false, "terms_preserved": true}
+    "transaction": {"id":"checkout-8001","valid_until":"2026-09-20T00:00:00Z"},
+    "governing_semantics": {
+      "post_bind_valid_until": "2026-09-13T00:00:00Z",
+      "release_condition": null,
+      "execution_invalidation_conditions": ["inventory_allocation_changed"],
+      "deadline_source": "explicit_post_bind_deadline",
+      "pending_at_deadline": null
+    },
+    "events": [{"at":"2026-09-12T11:00:00Z","event":"inventory_allocation_changed"}],
+    "execution_attempt": {
+      "at": "2026-09-12T12:00:00Z",
+      "release_condition_met": null,
+      "active_invalidation_conditions": ["inventory_allocation_changed"],
+      "terms_unchanged": true,
+      "release_resolved_at": null
+    },
+    "expected": {"status":"post_bind_invalidated","reason":"inventory_allocation_changed","executed":false,"terms_preserved":true}
   },
-  "expected": {"recognized": true, "artifact_valid": true, "bindable": true, "outcome": "bound", "reason": "bound"},
+  "expected": {"recognized":true,"artifact_valid":true,"bindable":true,"outcome":"bound","reason":"bound"},
   "model_requirements": {
-    "opaque_reference": {"requires": ["authoritative_resolution", "post_bind_authority", "transaction_lifecycle", "dual_clock_rule"], "expected_verdict": "AMBIGUOUS", "rationale": "The origin can resolve state, but a bare reference does not state which authority or clock governs after binding."},
-    "portable_artifact": {"requires": ["post_bind_authority", "transaction_lifecycle", "dual_clock_rule"], "expected_verdict": "AMBIGUOUS", "rationale": "The rule can travel, but the bare artifact does not define an execution lifecycle or authoritative invalidation event."}
+    "opaque_reference": {
+      "requires": ["authoritative_resolution","post_bind_authority","transaction_lifecycle","dual_clock_rule"],
+      "expected_verdict": "AMBIGUOUS",
+      "rationale": "The origin can resolve state, but a bare reference does not state which authority or clock governs after binding."
+    },
+    "portable_artifact": {
+      "requires": ["post_bind_authority","transaction_lifecycle","dual_clock_rule"],
+      "expected_verdict": "AMBIGUOUS",
+      "rationale": "The rule can travel, but the bare artifact does not define an execution lifecycle or authoritative invalidation event."
+    }
   },
-  "invariants": ["I1", "I6", "I8", "I12", "I13", "I14", "I15"]
+  "invariants": ["I1","I6","I8","I12","I13","I14","I15"]
 }
